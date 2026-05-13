@@ -1,0 +1,16 @@
+export { CagesPage } from "./cages-page";
+export { CageDetailPage } from "./cage-detail-page";
+export { CouplesPage } from "./couples-page";
+export { CoupleDetailPage } from "./couple-detail-page";
+export { DashboardPage } from "./dashboard-page";
+export { ExitsPage } from "./exits-page";
+export { ExitDetailPage } from "./exit-detail-page";
+export { ForgotPasswordPage } from "./forgot-password-page";
+export { LoginPage } from "./login-page";
+export { NotificationsPage } from "./notifications-page";
+export { ParametresPage } from "./parametres-page";
+export { PigeonsPage } from "./pigeons-page";
+export { PigeonDetailPage } from "./pigeon-detail-page";
+export { ProfilPage } from "./profil-page";
+export { ReproductionsPage } from "./reproductions-page";
+export { ReproductionDetailPage } from "./reproduction-detail-page";
