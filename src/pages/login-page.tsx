@@ -8,11 +8,13 @@ import { useLoginMutation } from "@/store/api/authApi";
 import { useAppDispatch } from "@/store";
 import { setSession } from "@/store/slices/authSlice";
 import { Bird, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Route as LoginRoute } from "@/routes/login";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { redirect: redirectTo } = LoginRoute.useSearch();
   const [login, { isLoading }] = useLoginMutation();
 
   const form = useForm<LoginFormValues>({
@@ -35,7 +37,7 @@ export function LoginPage() {
       dispatch(setSession(session));
       router.invalidate();
       toast.success(`Bienvenue, ${session.user.nom_complet} !`);
-      void navigate({ to: "/" });
+      void navigate({ to: redirectTo ?? "/" });
     } catch (err) {
       console.error("[auth] login failed:", err);
 

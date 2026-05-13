@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
+import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Badge, Button, Card } from "@/components/domain";
-import { useGetPigeonsQuery, useCreatePigeonMutation } from "@/store/api/pigeonApi";
-import { pigeonCreateSchema, type PigeonCreateValues } from "@/lib/schemas/pigeon";
+import {
+  useGetPigeonPageQuery,
+  useCreatePigeonMutation,
+  useUpdatePigeonMutation,
+  useDeletePigeonMutation,
+} from "@/store/api/pigeonApi";
+import type { PigeonListParams } from "@/store/api/pigeonApi";
+import { pigeonFormSchema, type PigeonFormValues } from "@/lib/schemas/pigeon";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "@/components/ui/query-states";
 import { InputField, SelectField } from "@/components/ui/form-field";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +32,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, Search, MoreHorizontal, Bird, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import type { PigeonStatut, PigeonSexe } from "@/types/pigeon";
+import type { Pigeon, PigeonStatut, PigeonSexe } from "@/types/pigeon";
 
-const PAGE_SIZE = 10;
+// Transforms form values (strings from HTML inputs) into a backend-compatible payload.
+// Empty strings become null for nullable fields.
+function toPayload(v: PigeonFormValues) {
+  return {
+    code_bague: v.code_bague.trim(),
+    sexe: v.sexe,
+    race: v.race?.trim() || null,
+    couleur: v.couleur?.trim() || null,
+    date_naissance: v.date_naissance || null,
+  };
+}
+
+// Reads 422 field-level errors from RTK Query's FetchBaseQueryError and applies
+// them to a react-hook-form instance. Returns true if errors were found.
+function applyApiErrors<T extends FieldValues>(
+  err: unknown,
+  setError: UseFormSetError<T>,
+): boolean {
+  const errors = (err as { data?: { errors?: Record<string, string[]> } })?.data?.errors;
+  if (!errors) return false;
+  for (const [field, messages] of Object.entries(errors)) {
+    setError(field as Path<T>, { message: messages[0] });
+  }
+  return true;
+}
 
 const STATUT_LABELS: Record<PigeonStatut, string> = {
   actif: "Actif",
@@ -35,73 +67,143 @@ const STATUT_LABELS: Record<PigeonStatut, string> = {
   perdu: "Perdu",
 };
 
+const FORM_DEFAULTS: PigeonFormValues = {
+  code_bague: "",
+  sexe: "male",
+  race: "",
+  couleur: "",
+  date_naissance: "",
+};
+
 type SexFilter = "all" | PigeonSexe;
 type StatusFilter = "all" | PigeonStatut;
 
 export function PigeonsPage() {
-  const { data: pigeons = [], isLoading, isError, refetch } = useGetPigeonsQuery();
-  const [createPigeon] = useCreatePigeonMutation();
-  const [q, setQ] = useState("");
+  // ── Filter state ────────────────────────────────────────────────────────────
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState(""); // debounced value sent to server
   const [sexFilter, setSexFilter] = useState<SexFilter>("all");
-  const [raceFilter, setRaceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
-  const [addOpen, setAddOpen] = useState(false);
 
+  // ── Dialog state ────────────────────────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingPigeon, setEditingPigeon] = useState<Pigeon | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Debounce the search input (350ms) before sending to the server
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [sexFilter, statusFilter, search]);
+
+  // Support opening the add dialog via URL hash #nouveau
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash === "#nouveau") {
       setAddOpen(true);
-      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
   }, []);
 
+  // Build server-side query params from current filter/page state
+  const queryParams = useMemo<PigeonListParams>(() => {
+    const params: PigeonListParams = { page, per_page: 15 };
+    if (sexFilter !== "all") params["filter[sexe]"] = sexFilter;
+    if (statusFilter !== "all") params["filter[statut]"] = statusFilter;
+    if (search) params["filter[search]"] = search;
+    return params;
+  }, [page, sexFilter, statusFilter, search]);
+
+  // ── RTK Query ───────────────────────────────────────────────────────────────
+  const { data, isLoading, isError, refetch } = useGetPigeonPageQuery(queryParams);
+  const [createPigeon] = useCreatePigeonMutation();
+  const [updatePigeon] = useUpdatePigeonMutation();
+  const [deletePigeon] = useDeletePigeonMutation();
+
+  const pigeons = data?.data ?? [];
+  const meta = data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.last_page ?? 1;
+  const currentPage = meta?.current_page ?? 1;
+
+  // ── Forms ───────────────────────────────────────────────────────────────────
+  const addForm = useForm<PigeonFormValues>({
+    resolver: zodResolver(pigeonFormSchema),
+    defaultValues: FORM_DEFAULTS,
+  });
+
+  const editForm = useForm<PigeonFormValues>({
+    resolver: zodResolver(pigeonFormSchema),
+  });
+
+  // Pre-fill the edit form whenever a different pigeon is selected for editing
   useEffect(() => {
-    setPage(1);
-  }, [q, sexFilter, raceFilter, statusFilter]);
+    if (editingPigeon) {
+      editForm.reset({
+        code_bague: editingPigeon.code_bague,
+        sexe: editingPigeon.sexe,
+        race: editingPigeon.race ?? "",
+        couleur: editingPigeon.couleur ?? "",
+        date_naissance: editingPigeon.date_naissance ?? "",
+      });
+    }
+  }, [editingPigeon, editForm]);
 
-  const races = useMemo(
-    () => Array.from(new Set(pigeons.map((p) => p.race).filter(Boolean))).sort() as string[],
-    [pigeons],
-  );
-
-  const filtered = useMemo(
-    () =>
-      pigeons.filter((p) => {
-        if (sexFilter !== "all" && p.sexe !== sexFilter) return false;
-        if (raceFilter !== "all" && p.race !== raceFilter) return false;
-        if (statusFilter !== "all" && p.statut !== statusFilter) return false;
-        if (q) {
-          const lq = q.toLowerCase();
-          return [p.code_bague, p.race ?? "", p.couleur ?? ""].some((v) =>
-            v.toLowerCase().includes(lq),
-          );
-        }
-        return true;
-      }),
-    [pigeons, q, sexFilter, raceFilter, statusFilter],
-  );
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const form = useForm<PigeonCreateValues>({
-    resolver: zodResolver(pigeonCreateSchema),
-    defaultValues: { code_bague: "", sexe: "male", race: "" },
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const onAddSubmit = addForm.handleSubmit(async (values) => {
+    try {
+      const pigeon = await createPigeon(toPayload(values)).unwrap();
+      toast.success(`Pigeon ${pigeon.code_bague} enregistré.`);
+      setAddOpen(false);
+      addForm.reset(FORM_DEFAULTS);
+    } catch (err) {
+      if (!applyApiErrors(err, addForm.setError)) {
+        addForm.setError("root", { message: "Une erreur est survenue. Réessayez." });
+      }
+    }
   });
 
-  const onAddSubmit = form.handleSubmit(async (values) => {
-    await createPigeon(values).unwrap();
-    toast.success(`Pigeon ${values.code_bague} enregistré.`);
-    setAddOpen(false);
-    form.reset({ code_bague: "", sexe: "male", race: "" });
+  const onEditSubmit = editForm.handleSubmit(async (values) => {
+    if (!editingPigeon) return;
+    try {
+      const pigeon = await updatePigeon({ id: editingPigeon.id, data: toPayload(values) }).unwrap();
+      toast.success(`Pigeon ${pigeon.code_bague} mis à jour.`);
+      setEditingPigeon(null);
+    } catch (err) {
+      if (!applyApiErrors(err, editForm.setError)) {
+        editForm.setError("root", { message: "Une erreur est survenue. Réessayez." });
+      }
+    }
   });
 
+  async function handleDelete() {
+    if (deletingId === null) return;
+    try {
+      await deletePigeon(deletingId).unwrap();
+      toast.success("Pigeon supprimé.");
+    } catch {
+      toast.error("Impossible de supprimer ce pigeon.");
+    }
+  }
+
+  const hasFilters = !!search || sexFilter !== "all" || statusFilter !== "all";
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <AppShell>
       <PageHeader
         title="Pigeons"
-        subtitle={`${pigeons.length} pigeon${pigeons.length !== 1 ? "s" : ""} enregistré${pigeons.length !== 1 ? "s" : ""} dans votre élevage.`}
+        subtitle={
+          isLoading
+            ? "Chargement…"
+            : `${total} pigeon${total !== 1 ? "s" : ""} enregistré${total !== 1 ? "s" : ""} dans votre élevage.`
+        }
         actions={
           <Button type="button" onClick={() => setAddOpen(true)}>
             <Plus className="size-4" /> Ajouter un pigeon
@@ -109,7 +211,14 @@ export function PigeonsPage() {
         }
       />
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      {/* ── Add dialog ── */}
+      <Dialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) addForm.reset(FORM_DEFAULTS);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nouveau pigeon</DialogTitle>
@@ -118,35 +227,61 @@ export function PigeonsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={onAddSubmit} className="space-y-4">
+            {addForm.formState.errors.root && (
+              <p role="alert" className="text-xs text-destructive">
+                {addForm.formState.errors.root.message}
+              </p>
+            )}
             <InputField
-              id="p-code-bague"
+              id="add-code-bague"
               label="Matricule (code bague)"
               placeholder="ex : SN-2024-001"
-              error={form.formState.errors.code_bague?.message}
-              {...form.register("code_bague")}
+              error={addForm.formState.errors.code_bague?.message}
+              {...addForm.register("code_bague")}
             />
             <SelectField
-              id="p-sexe"
+              id="add-sexe"
               label="Sexe"
-              error={form.formState.errors.sexe?.message}
-              {...form.register("sexe")}
+              error={addForm.formState.errors.sexe?.message}
+              {...addForm.register("sexe")}
             >
               <option value="male">Mâle</option>
               <option value="femelle">Femelle</option>
             </SelectField>
             <InputField
-              id="p-race"
+              id="add-race"
               label="Race (optionnel)"
               placeholder="ex : Voyageur"
-              error={form.formState.errors.race?.message}
-              {...form.register("race")}
+              error={addForm.formState.errors.race?.message}
+              {...addForm.register("race")}
+            />
+            <InputField
+              id="add-couleur"
+              label="Couleur (optionnel)"
+              placeholder="ex : Bleu barré"
+              error={addForm.formState.errors.couleur?.message}
+              {...addForm.register("couleur")}
+            />
+            <InputField
+              id="add-date"
+              label="Date de naissance (optionnel)"
+              type="date"
+              error={addForm.formState.errors.date_naissance?.message}
+              {...addForm.register("date_naissance")}
             />
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAddOpen(false);
+                  addForm.reset(FORM_DEFAULTS);
+                }}
+              >
                 Annuler
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (
+              <Button type="submit" disabled={addForm.formState.isSubmitting}>
+                {addForm.formState.isSubmitting ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   "Enregistrer"
@@ -157,14 +292,104 @@ export function PigeonsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Edit dialog ── */}
+      <Dialog
+        open={!!editingPigeon}
+        onOpenChange={(open) => {
+          if (!open) setEditingPigeon(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier le pigeon</DialogTitle>
+            <DialogDescription>
+              Mettez à jour les informations de ce pigeon.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onEditSubmit} className="space-y-4">
+            {editForm.formState.errors.root && (
+              <p role="alert" className="text-xs text-destructive">
+                {editForm.formState.errors.root.message}
+              </p>
+            )}
+            <InputField
+              id="edit-code-bague"
+              label="Matricule (code bague)"
+              placeholder="ex : SN-2024-001"
+              error={editForm.formState.errors.code_bague?.message}
+              {...editForm.register("code_bague")}
+            />
+            <SelectField
+              id="edit-sexe"
+              label="Sexe"
+              error={editForm.formState.errors.sexe?.message}
+              {...editForm.register("sexe")}
+            >
+              <option value="male">Mâle</option>
+              <option value="femelle">Femelle</option>
+            </SelectField>
+            <InputField
+              id="edit-race"
+              label="Race (optionnel)"
+              placeholder="ex : Voyageur"
+              error={editForm.formState.errors.race?.message}
+              {...editForm.register("race")}
+            />
+            <InputField
+              id="edit-couleur"
+              label="Couleur (optionnel)"
+              placeholder="ex : Bleu barré"
+              error={editForm.formState.errors.couleur?.message}
+              {...editForm.register("couleur")}
+            />
+            <InputField
+              id="edit-date"
+              label="Date de naissance (optionnel)"
+              type="date"
+              error={editForm.formState.errors.date_naissance?.message}
+              {...editForm.register("date_naissance")}
+            />
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingPigeon(null)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                {editForm.formState.isSubmitting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  "Enregistrer"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete confirm ── */}
+      <ConfirmDialog
+        open={deletingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingId(null);
+        }}
+        title="Supprimer ce pigeon ?"
+        description="Cette action est irréversible. Le pigeon sera supprimé de votre élevage."
+        confirmLabel="Supprimer"
+        onConfirm={handleDelete}
+      />
+
       <Card className="p-0! overflow-hidden">
+        {/* ── Filters ── */}
         <div className="p-4 border-b flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-3 h-9 rounded-lg bg-muted/60 flex-1 min-w-50 max-w-sm">
             <Search className="size-4 text-muted-foreground" />
             <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher matricule, race…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Rechercher matricule, race, couleur…"
               className="bg-transparent outline-none text-sm flex-1"
               aria-label="Rechercher un pigeon"
             />
@@ -180,17 +405,6 @@ export function PigeonsPage() {
             <option value="femelle">Femelle</option>
           </select>
           <select
-            value={raceFilter}
-            onChange={(e) => setRaceFilter(e.target.value)}
-            className="h-9 rounded-lg border bg-background px-3 text-sm"
-            aria-label="Filtrer par race"
-          >
-            <option value="all">Toutes les races</option>
-            {races.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             className="h-9 rounded-lg border bg-background px-3 text-sm"
@@ -204,22 +418,28 @@ export function PigeonsPage() {
           </select>
         </div>
 
+        {/* ── States ── */}
         {isLoading && <LoadingSpinner label="Chargement des pigeons…" />}
         {isError && (
-          <ErrorAlert message="Impossible de charger les pigeons." onRetry={() => refetch()} />
+          <ErrorAlert
+            message="Impossible de charger les pigeons."
+            onRetry={() => refetch()}
+          />
         )}
-        {!isLoading && !isError && filtered.length === 0 && (
+        {!isLoading && !isError && pigeons.length === 0 && (
           <EmptyState
-            title={q || sexFilter !== "all" || raceFilter !== "all" || statusFilter !== "all"
-              ? "Aucun pigeon ne correspond à vos filtres."
-              : "Aucun pigeon enregistré."}
+            title={
+              hasFilters
+                ? "Aucun pigeon ne correspond à vos filtres."
+                : "Aucun pigeon enregistré."
+            }
             description={
-              q || sexFilter !== "all" || raceFilter !== "all" || statusFilter !== "all"
+              hasFilters
                 ? "Modifiez vos critères de recherche."
                 : "Ajoutez votre premier pigeon pour commencer."
             }
             action={
-              !(q || sexFilter !== "all" || raceFilter !== "all" || statusFilter !== "all") ? (
+              !hasFilters ? (
                 <Button type="button" onClick={() => setAddOpen(true)}>
                   Ajouter un pigeon
                 </Button>
@@ -228,7 +448,8 @@ export function PigeonsPage() {
           />
         )}
 
-        {!isLoading && !isError && paginated.length > 0 && (
+        {/* ── Table ── */}
+        {!isLoading && !isError && pigeons.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -243,7 +464,7 @@ export function PigeonsPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginated.map((p) => (
+                {pigeons.map((p) => (
                   <tr
                     key={p.id}
                     className="border-b last:border-0 hover:bg-muted/30 transition-colors"
@@ -255,7 +476,11 @@ export function PigeonsPage() {
                         className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                       >
                         <div
-                          className={`size-8 rounded-lg grid place-items-center ${p.sexe === "male" ? "bg-blue-500/10 text-blue-600" : "bg-pink-500/10 text-pink-600"}`}
+                          className={`size-8 rounded-lg grid place-items-center ${
+                            p.sexe === "male"
+                              ? "bg-blue-500/10 text-blue-600"
+                              : "bg-pink-500/10 text-pink-600"
+                          }`}
                         >
                           <Bird className="size-4" />
                         </div>
@@ -304,6 +529,15 @@ export function PigeonsPage() {
                               Voir la fiche
                             </Link>
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditingPigeon(p)}>
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeletingId(p.id)}
+                          >
+                            Supprimer
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -314,11 +548,12 @@ export function PigeonsPage() {
           </div>
         )}
 
-        {!isLoading && !isError && filtered.length > 0 && (
+        {/* ── Footer / Pagination ── */}
+        {!isLoading && !isError && total > 0 && (
           <div className="p-4 flex items-center justify-between border-t text-sm text-muted-foreground">
             <span>
-              {filtered.length} résultat{filtered.length !== 1 ? "s" : ""}
-              {totalPages > 1 && ` · page ${page} / ${totalPages}`}
+              {total} pigeon{total !== 1 ? "s" : ""}
+              {totalPages > 1 && ` · page ${currentPage} / ${totalPages}`}
             </span>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
@@ -327,14 +562,14 @@ export function PigeonsPage() {
                   size="sm"
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
+                  disabled={currentPage === 1}
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
                   <Button
                     key={n}
-                    variant={n === page ? "primary" : "outline"}
+                    variant={n === currentPage ? "primary" : "outline"}
                     size="sm"
                     type="button"
                     onClick={() => setPage(n)}
@@ -347,7 +582,7 @@ export function PigeonsPage() {
                   size="sm"
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  disabled={currentPage === totalPages}
                 >
                   <ChevronRight className="size-4" />
                 </Button>

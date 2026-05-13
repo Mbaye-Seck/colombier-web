@@ -1,5 +1,5 @@
 import { baseApi } from "@/store/baseApi";
-import { clearSession } from "@/lib/auth";
+import { clearAuth } from "@/store/slices/authSlice";
 import type { AuthUser, AuthSession } from "@/lib/auth";
 import type { LoginFormValues } from "@/lib/schemas/auth";
 
@@ -30,10 +30,13 @@ export const authApi = baseApi.injectEndpoints({
     logout: build.mutation<void, void>({
       query: () => ({ url: "auth/logout", method: "POST" }),
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        // Clear auth immediately (optimistic) — don't wait for server response.
+        dispatch(clearAuth());
         try {
           await queryFulfilled;
+        } catch {
+          // Session is already cleared locally; ignore backend errors.
         } finally {
-          clearSession();
           dispatch(baseApi.util.resetApiState());
         }
       },

@@ -2,7 +2,21 @@ import { baseApi } from "@/store/baseApi";
 import type { Pigeon } from "@/types/pigeon";
 import type { PigeonCreateValues, PigeonUpdateValues } from "@/lib/schemas/pigeon";
 
-type PaginatedPigeons = { data: Pigeon[] };
+export type PaginationMeta = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+};
+
+export type PigeonPage = {
+  data: Pigeon[];
+  meta: PaginationMeta;
+};
+
+type RawPigeonPage = { data: Pigeon[]; meta: PaginationMeta };
 type SinglePigeon = { data: Pigeon };
 
 export interface PigeonListParams {
@@ -10,7 +24,6 @@ export interface PigeonListParams {
   per_page?: number;
   "filter[sexe]"?: string;
   "filter[statut]"?: string;
-  "filter[race]"?: string;
   "filter[search]"?: string;
   sort?: string;
   include?: string;
@@ -18,12 +31,29 @@ export interface PigeonListParams {
 
 export const pigeonApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
+    // Paginated list with full metadata — used by the pigeons list page
+    getPigeonPage: build.query<PigeonPage, PigeonListParams | void>({
+      query: (params = {}) => ({
+        url: "pigeons",
+        params: { include: "pere,mere", ...params },
+      }),
+      transformResponse: (response: RawPigeonPage): PigeonPage => response,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.data.map(({ id }) => ({ type: "Pigeon" as const, id })),
+              { type: "Pigeon", id: "LIST" },
+            ]
+          : [{ type: "Pigeon", id: "LIST" }],
+    }),
+
+    // Flat array — used by couple/exit/cage-grid select dropdowns
     getPigeons: build.query<Pigeon[], PigeonListParams | void>({
       query: (params = {}) => ({
         url: "pigeons",
         params: { per_page: 100, ...params },
       }),
-      transformResponse: (response: PaginatedPigeons) => response.data,
+      transformResponse: (response: RawPigeonPage) => response.data,
       providesTags: (result) =>
         result
           ? [
@@ -77,6 +107,7 @@ export const pigeonApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetPigeonPageQuery,
   useGetPigeonsQuery,
   useGetPigeonQuery,
   useCreatePigeonMutation,
