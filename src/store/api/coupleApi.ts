@@ -2,24 +2,57 @@ import { baseApi } from "@/store/baseApi";
 import type { Couple } from "@/types/couple";
 import type { CoupleCreateValues, CoupleUpdateValues } from "@/lib/schemas/couple";
 
-type PaginatedCouples = { data: Couple[] };
+type PaginationMeta = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+};
+
+type RawCouplePage = { data: Couple[]; meta: PaginationMeta };
 type SingleCouple = { data: Couple };
+
+export type CouplePage = { data: Couple[]; meta: PaginationMeta };
+
+export interface CouplePageParams {
+  page?: number;
+  per_page?: number;
+  "filter[statut]"?: string;
+}
 
 export interface CoupleListParams {
   per_page?: number;
   "filter[statut]"?: string;
-  "filter[search]"?: string;
   include?: string;
 }
 
 export const coupleApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
+    // Paginated — used by the couples list page
+    getCouplesPage: build.query<CouplePage, CouplePageParams | void>({
+      query: (params = {}) => ({
+        url: "couples",
+        params: { per_page: 15, include: "male,femelle", ...params },
+      }),
+      transformResponse: (response: RawCouplePage): CouplePage => response,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.data.map(({ id }) => ({ type: "Couple" as const, id })),
+              { type: "Couple", id: "LIST" },
+            ]
+          : [{ type: "Couple", id: "LIST" }],
+    }),
+
+    // Flat array — used by dropdowns (reproduction create form)
     getCouples: build.query<Couple[], CoupleListParams | void>({
       query: (params = {}) => ({
         url: "couples",
         params: { per_page: 100, include: "male,femelle", ...params },
       }),
-      transformResponse: (response: PaginatedCouples) => response.data,
+      transformResponse: (response: RawCouplePage) => response.data,
       providesTags: (result) =>
         result
           ? [
@@ -76,14 +109,24 @@ export const coupleApi = baseApi.injectEndpoints({
         { type: "Couple", id: "LIST" },
       ],
     }),
+
+    deleteCouple: build.mutation<void, number>({
+      query: (id) => ({ url: `couples/${id}`, method: "DELETE" }),
+      invalidatesTags: (_, __, id) => [
+        { type: "Couple", id },
+        { type: "Couple", id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
 
 export const {
+  useGetCouplesPageQuery,
   useGetCouplesQuery,
   useGetCoupleQuery,
   useCreateCoupleMutation,
   useUpdateCoupleMutation,
   useBreakCoupleMutation,
+  useDeleteCoupleMutation,
 } = coupleApi;
