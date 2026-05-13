@@ -4,12 +4,14 @@ import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Badge, Card } from "@/components/domain";
 import { LoadingSpinner, ErrorAlert } from "@/components/ui/query-states";
 import { useGetCageQuery } from "@/store/api/cageApi";
-import { CAGE_STATUS_LABELS } from "@/services/mock/cages";
+import { CAGE_STATUS_LABELS } from "@/types/cage";
 import { cn } from "@/lib/utils";
 
 export function CageDetailPage({ code }: { code: string }) {
-  const decoded = decodeURIComponent(code);
-  const { data: cage, isLoading, isError, refetch } = useGetCageQuery(decoded);
+  const cageId = Number(decodeURIComponent(code));
+  const { data: cage, isLoading, isError, refetch } = useGetCageQuery(cageId, {
+    skip: isNaN(cageId),
+  });
 
   return (
     <AppShell>
@@ -31,7 +33,7 @@ export function CageDetailPage({ code }: { code: string }) {
 
       {!isLoading && !isError && !cage && (
         <>
-          <PageHeader title="Cage introuvable" subtitle={`Code « ${decoded} » inconnu.`} />
+          <PageHeader title="Cage introuvable" subtitle={`Identifiant « ${code} » inconnu.`} />
           <Card>
             <Link
               to="/cages"
@@ -61,7 +63,7 @@ export function CageDetailPage({ code }: { code: string }) {
                     <li key={o.ring}>
                       <Link
                         to="/pigeons/$ring"
-                        params={{ ring: o.ring }}
+                        params={{ ring: String(o.pigeonId) }}
                         className="flex gap-3 p-3 rounded-xl border bg-background hover:bg-muted/50 transition-colors"
                       >
                         <div
@@ -77,9 +79,7 @@ export function CageDetailPage({ code }: { code: string }) {
                         <div className="text-sm">
                           <div className="font-semibold">{o.sex === "M" ? "Mâle" : "Femelle"}</div>
                           <div className="text-muted-foreground font-mono text-xs">{o.ring}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {o.race} · {o.age}
-                          </div>
+                          <div className="text-xs text-muted-foreground">{o.race}</div>
                         </div>
                       </Link>
                     </li>

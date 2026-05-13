@@ -21,7 +21,7 @@ import {
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const firstName = user?.name?.split(" ")[0] ?? "là";
+  const firstName = user?.nom_complet?.split(" ")[0] ?? "là";
 
   return (
     <AppShell>

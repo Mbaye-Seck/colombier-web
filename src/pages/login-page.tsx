@@ -21,18 +21,39 @@ export function LoginPage() {
   });
 
   const onSubmit = form.handleSubmit(async (data) => {
-    const result = await login(data);
-    if ("error" in result) {
-      form.setError("root", {
-        message:
-          typeof result.error === "string" ? result.error : "Email ou mot de passe incorrect.",
-      });
-      return;
+    try {
+      const session = await login(data).unwrap();
+
+      if (session.user.role === "admin") {
+        form.setError("root", {
+          message:
+            "Accès réservé aux éleveurs. Les administrateurs doivent utiliser le panneau d'administration.",
+        });
+        return;
+      }
+
+      dispatch(setSession(session));
+      router.invalidate();
+      toast.success(`Bienvenue, ${session.user.nom_complet} !`);
+      void navigate({ to: "/" });
+    } catch (err) {
+      console.error("[auth] login failed:", err);
+
+      const status =
+        err && typeof err === "object" && "status" in err
+          ? (err as { status: number | string }).status
+          : null;
+
+      if (status === 429) {
+        form.setError("root", { message: "Trop de tentatives. Réessayez dans quelques minutes." });
+      } else if (status === "FETCH_ERROR") {
+        form.setError("root", {
+          message: "Impossible de joindre le serveur. Vérifiez votre connexion.",
+        });
+      } else {
+        form.setError("root", { message: "Email ou mot de passe incorrect." });
+      }
     }
-    dispatch(setSession(result.data));
-    router.invalidate();
-    toast.success(`Bienvenue, ${result.data.user.name} !`);
-    void navigate({ to: "/" });
   });
 
   return (

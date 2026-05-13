@@ -5,9 +5,20 @@ import { PageHeader, Badge, Card } from "@/components/domain";
 import { LoadingSpinner, ErrorAlert } from "@/components/ui/query-states";
 import { useGetPigeonQuery } from "@/store/api/pigeonApi";
 import { cn } from "@/lib/utils";
+import type { PigeonStatut } from "@/types/pigeon";
+
+const STATUT_LABELS: Record<PigeonStatut, string> = {
+  actif: "Actif",
+  vendu: "Vendu",
+  mort: "Mort",
+  perdu: "Perdu",
+};
 
 export function PigeonDetailPage({ ring }: { ring: string }) {
-  const { data: pigeon, isLoading, isError, refetch } = useGetPigeonQuery(ring);
+  const pigeonId = Number(ring);
+  const { data: pigeon, isLoading, isError, refetch } = useGetPigeonQuery(pigeonId, {
+    skip: isNaN(pigeonId),
+  });
 
   return (
     <AppShell>
@@ -31,7 +42,7 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
         <>
           <PageHeader
             title="Pigeon introuvable"
-            subtitle={`Aucun pigeon avec le matricule « ${ring} ».`}
+            subtitle={`Aucun pigeon avec l'identifiant « ${ring} ».`}
           />
           <Card>
             <Link
@@ -46,7 +57,10 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
 
       {!isLoading && !isError && pigeon && (
         <>
-          <PageHeader title={pigeon.ring} subtitle={`${pigeon.race} · ${pigeon.cage}`} />
+          <PageHeader
+            title={pigeon.code_bague}
+            subtitle={[pigeon.race, pigeon.couleur].filter(Boolean).join(" · ") || "—"}
+          />
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <h3 className="text-sm font-semibold mb-3">Identité</h3>
@@ -54,56 +68,72 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Sexe</dt>
                   <dd>
-                    <Badge tone={pigeon.sex === "M" ? "default" : "couple"}>
-                      {pigeon.sex === "M" ? "Mâle" : "Femelle"}
+                    <Badge tone={pigeon.sexe === "male" ? "default" : "couple"}>
+                      {pigeon.sexe === "male" ? "Mâle" : "Femelle"}
                     </Badge>
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Race</dt>
-                  <dd>{pigeon.race}</dd>
+                  <dd>{pigeon.race ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Couleur</dt>
-                  <dd>{pigeon.couleur}</dd>
+                  <dd>{pigeon.couleur ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Âge</dt>
-                  <dd>{pigeon.age}</dd>
+                  <dt className="text-muted-foreground">Date de naissance</dt>
+                  <dd>{pigeon.date_naissance ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">Statut</dt>
                   <dd>
                     <Badge
                       tone={
-                        pigeon.statut === "Actif"
+                        pigeon.statut === "actif"
                           ? "empty"
-                          : pigeon.statut === "Reproduction"
-                            ? "couple"
-                            : "muted"
+                          : pigeon.statut === "vendu"
+                            ? "muted"
+                            : "single"
                       }
                     >
-                      {pigeon.statut}
+                      {STATUT_LABELS[pigeon.statut]}
                     </Badge>
                   </dd>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Cage</dt>
-                  <dd>
-                    <Link
-                      to="/cages/$code"
-                      params={{ code: pigeon.cage }}
-                      className="font-mono text-primary hover:underline"
-                    >
-                      {pigeon.cage}
-                    </Link>
-                  </dd>
-                </div>
+                {pigeon.pere && (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Père</dt>
+                    <dd>
+                      <Link
+                        to="/pigeons/$ring"
+                        params={{ ring: String(pigeon.pere.id) }}
+                        className="font-mono text-primary hover:underline"
+                      >
+                        {pigeon.pere.code_bague}
+                      </Link>
+                    </dd>
+                  </div>
+                )}
+                {pigeon.mere && (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Mère</dt>
+                    <dd>
+                      <Link
+                        to="/pigeons/$ring"
+                        params={{ ring: String(pigeon.mere.id) }}
+                        className="font-mono text-primary hover:underline"
+                      >
+                        {pigeon.mere.code_bague}
+                      </Link>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </Card>
             <Card className="flex flex-col items-center justify-center min-h-50 text-muted-foreground">
               <Bird className="size-12 opacity-30 mb-2" />
-              <p className="text-sm text-center">Historique et documents disponibles après connexion à l'API.</p>
+              <p className="text-sm text-center">Historique et documents disponibles prochainement.</p>
             </Card>
           </div>
         </>

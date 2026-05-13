@@ -25,14 +25,14 @@ export function ProfilPage() {
   const [editing, setEditing] = useState(false);
   const [location, setLocation] = useState("Lyon, France");
 
-  const initials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+  const initials = user?.nom_complet
+    ? user.nom_complet.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
   const form = useForm<ProfilValues>({
     resolver: zodResolver(profilSchema),
     defaultValues: {
-      name: user?.name ?? "",
+      name: user?.nom_complet ?? "",
       email: user?.email ?? "",
       location,
     },
@@ -66,7 +66,7 @@ export function ProfilPage() {
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold">{user?.name ?? "—"}</h2>
+              <h2 className="text-lg font-semibold">{user?.nom_complet ?? "—"}</h2>
               <p className="text-sm text-muted-foreground capitalize">{user?.role ?? ""}</p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -143,7 +143,7 @@ export function ProfilPage() {
           <Card>
             <h3 className="text-sm font-semibold mb-4">Informations</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FieldRow label="Nom complet" value={user?.name ?? "—"} />
+              <FieldRow label="Nom complet" value={user?.nom_complet ?? "—"} />
               <FieldRow label="Email" value={user?.email ?? "—"} />
               <FieldRow label="Localisation" value={form.watch("location") || location} />
               <FieldRow label="Membre depuis" value={MOCK_STATS.since} />

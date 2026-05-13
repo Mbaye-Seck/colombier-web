@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Card, Badge, Button, StatCard } from "@/components/domain";
 import { useGetReproductionsQuery, useCreateReproductionMutation } from "@/store/api/reproductionApi";
+import { useGetCouplesQuery } from "@/store/api/coupleApi";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "@/components/ui/query-states";
 import { InputField, TextareaField } from "@/components/ui/form-field";
 import {
@@ -21,21 +22,39 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, Egg, Bird, Loader2 } from "lucide-react";
+import type { Reproduction } from "@/types/reproduction";
 
 export function ReproductionsPage() {
   const { data: repros = [], isLoading, isError, refetch } = useGetReproductionsQuery();
+  const { data: couples = [] } = useGetCouplesQuery();
   const [createReproduction] = useCreateReproductionMutation();
-  const totalJeunes = repros.reduce((s, r) => s + r.jeunes, 0);
   const [addOpen, setAddOpen] = useState(false);
+
+  const totalJeunes = repros.reduce((s, r) => s + (r.nombre_jeunes ?? 0), 0);
+  const enIncubation = repros.filter((r) => r.statut === "en_cours").length;
+  const terminees = repros.filter((r) => r.statut === "terminee").length;
+  const tauxReussite = repros.length > 0
+    ? `${Math.round((terminees / repros.length) * 100)}%`
+    : "—";
+
+  const activeCouples = useMemo(
+    () => couples.filter((c) => c.statut === "actif"),
+    [couples],
+  );
 
   const form = useForm<ReproductionCreateValues>({
     resolver: zodResolver(reproductionCreateSchema),
-    defaultValues: { coupleId: "", ponte: "", eclosionPrevue: "", notes: "" },
+    defaultValues: {
+      couple_id: undefined as unknown as number,
+      date_ponte: "",
+      date_eclosion: "",
+      notes: "",
+    },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
     await createReproduction(values).unwrap();
-    toast.success(`Reproduction pour le couple ${values.coupleId} enregistrée.`);
+    toast.success(`Reproduction pour le couple #${values.couple_id} enregistrée.`);
     setAddOpen(false);
     form.reset();
   });
@@ -59,26 +78,41 @@ export function ReproductionsPage() {
             <DialogDescription>Enregistrez une nouvelle ponte pour un couple.</DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
-            <InputField
-              id="r-couple"
-              label="Identifiant du couple"
-              placeholder="ex : C-001"
-              error={form.formState.errors.coupleId?.message}
-              {...form.register("coupleId")}
-            />
+            <div>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="r-couple">
+                Couple
+              </label>
+              <select
+                id="r-couple"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+                {...form.register("couple_id", { valueAsNumber: true })}
+              >
+                <option value="">Sélectionner un couple…</option>
+                {activeCouples.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    #{c.id} — {c.male?.code_bague ?? `ID ${c.male_id}`} × {c.femelle?.code_bague ?? `ID ${c.femelle_id}`}
+                  </option>
+                ))}
+              </select>
+              {form.formState.errors.couple_id && (
+                <p className="text-xs text-destructive mt-1">
+                  {form.formState.errors.couple_id.message}
+                </p>
+              )}
+            </div>
             <InputField
               id="r-ponte"
               label="Date de ponte"
               type="date"
-              error={form.formState.errors.ponte?.message}
-              {...form.register("ponte")}
+              error={form.formState.errors.date_ponte?.message}
+              {...form.register("date_ponte")}
             />
             <InputField
               id="r-eclosion"
               label="Éclosion prévue (optionnel)"
               type="date"
-              error={form.formState.errors.eclosionPrevue?.message}
-              {...form.register("eclosionPrevue")}
+              error={form.formState.errors.date_eclosion?.message}
+              {...form.register("date_eclosion")}
             />
             <TextareaField
               id="r-notes"
@@ -116,8 +150,13 @@ export function ReproductionsPage() {
           icon={<Bird className="size-5" />}
           tone="empty"
         />
-        <StatCard label="En incubation" value={6} icon={<Egg className="size-5" />} tone="single" />
-        <StatCard label="Taux de réussite" value="84%" icon={<Egg className="size-5" />} />
+        <StatCard
+          label="En incubation"
+          value={enIncubation}
+          icon={<Egg className="size-5" />}
+          tone="single"
+        />
+        <StatCard label="Taux de réussite" value={tauxReussite} icon={<Egg className="size-5" />} />
       </div>
 
       {isLoading && <LoadingSpinner label="Chargement des reproductions…" />}
@@ -134,62 +173,77 @@ export function ReproductionsPage() {
       {!isLoading && !isError && repros.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {repros.map((r) => (
-            <Card key={r.id} className="hover:shadow-md transition">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="text-xs text-muted-foreground">Reproduction</div>
-                  <div className="font-semibold tracking-tight">
-                    {r.id} · Couple {r.couple}
-                  </div>
-                </div>
-                <Badge tone="couple">
-                  {r.jeunes} jeune{r.jeunes > 1 ? "s" : ""}
-                </Badge>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex-1 space-y-2">
-                  <ParentChip ring={r.pere} sex="M" />
-                  <ParentChip ring={r.mere} sex="F" />
-                </div>
-                <div className="w-8 border-t-2 border-dashed border-border" />
-                <div className="flex-1 space-y-2">
-                  {r.jeunesIds.map((id) => (
-                    <div
-                      key={id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cage-empty-soft border border-cage-empty-border"
-                    >
-                      <Bird className="size-4 text-cage-empty" />
-                      <span className="font-mono text-xs">{id}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t text-xs">
-                <div>
-                  <div className="text-muted-foreground">Ponte</div>
-                  <div className="font-medium">{r.ponte}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Éclosion</div>
-                  <div className="font-medium">{r.eclosion}</div>
-                </div>
-              </div>
-              <div className="mt-4">
-                <Link
-                  to="/reproductions/$id"
-                  params={{ id: r.id }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Ouvrir la fiche détaillée
-                </Link>
-              </div>
-            </Card>
+            <ReproductionCard key={r.id} r={r} />
           ))}
         </div>
       )}
     </AppShell>
+  );
+}
+
+function ReproductionCard({ r }: { r: Reproduction }) {
+  const maleBague = r.couple?.male?.code_bague ?? "—";
+  const femelleBague = r.couple?.femelle?.code_bague ?? "—";
+  const jeunes = r.nombre_jeunes ?? 0;
+  const pigeons = r.pigeons ?? [];
+
+  return (
+    <Card className="hover:shadow-md transition">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-xs text-muted-foreground">Reproduction</div>
+          <div className="font-semibold tracking-tight">
+            #{r.id} · Couple #{r.couple_id}
+          </div>
+        </div>
+        <Badge tone="couple">
+          {jeunes} jeune{jeunes !== 1 ? "s" : ""}
+        </Badge>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex-1 space-y-2">
+          <ParentChip ring={maleBague} sex="M" />
+          <ParentChip ring={femelleBague} sex="F" />
+        </div>
+        {pigeons.length > 0 && (
+          <>
+            <div className="w-8 border-t-2 border-dashed border-border" />
+            <div className="flex-1 space-y-2">
+              {pigeons.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cage-empty-soft border border-cage-empty-border"
+                >
+                  <Bird className="size-4 text-cage-empty" />
+                  <span className="font-mono text-xs">{p.code_bague}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t text-xs">
+        <div>
+          <div className="text-muted-foreground">Ponte</div>
+          <div className="font-medium">{r.date_ponte}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Éclosion</div>
+          <div className="font-medium">{r.date_eclosion ?? "—"}</div>
+        </div>
+      </div>
+      <div className="mt-4">
+        <Link
+          to="/reproductions/$id"
+          params={{ id: String(r.id) }}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Ouvrir la fiche détaillée
+        </Link>
+      </div>
+    </Card>
   );
 }
 

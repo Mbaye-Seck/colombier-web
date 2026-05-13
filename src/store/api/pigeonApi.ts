@@ -1,49 +1,76 @@
 import { baseApi } from "@/store/baseApi";
 import type { Pigeon } from "@/types/pigeon";
-import { getMockPigeons } from "@/services/mock/pigeons";
-import type { PigeonCreateValues } from "@/lib/schemas/pigeon";
+import type { PigeonCreateValues, PigeonUpdateValues } from "@/lib/schemas/pigeon";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+type PaginatedPigeons = { data: Pigeon[] };
+type SinglePigeon = { data: Pigeon };
+
+export interface PigeonListParams {
+  page?: number;
+  per_page?: number;
+  "filter[sexe]"?: string;
+  "filter[statut]"?: string;
+  "filter[race]"?: string;
+  "filter[search]"?: string;
+  sort?: string;
+  include?: string;
+}
 
 export const pigeonApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getPigeons: build.query<Pigeon[], void>({
-      queryFn: async () => {
-        await sleep(150);
-        return { data: getMockPigeons() };
-      },
+    getPigeons: build.query<Pigeon[], PigeonListParams | void>({
+      query: (params = {}) => ({
+        url: "pigeons",
+        params: { per_page: 100, ...params },
+      }),
+      transformResponse: (response: PaginatedPigeons) => response.data,
       providesTags: (result) =>
         result
           ? [
-              ...result.map(({ ring }) => ({ type: "Pigeon" as const, id: ring })),
+              ...result.map(({ id }) => ({ type: "Pigeon" as const, id })),
               { type: "Pigeon", id: "LIST" },
             ]
           : [{ type: "Pigeon", id: "LIST" }],
     }),
 
-    getPigeon: build.query<Pigeon | undefined, string>({
-      queryFn: async (ring) => {
-        await sleep(100);
-        return { data: getMockPigeons().find((p) => p.ring === ring) };
-      },
-      providesTags: (_, __, ring) => [{ type: "Pigeon", id: ring }],
+    getPigeon: build.query<Pigeon, number>({
+      query: (id) => ({
+        url: `pigeons/${id}`,
+        params: { include: "pere,mere,sorties" },
+      }),
+      transformResponse: (response: SinglePigeon) => response.data,
+      providesTags: (_, __, id) => [{ type: "Pigeon", id }],
     }),
 
     createPigeon: build.mutation<Pigeon, PigeonCreateValues>({
-      queryFn: async (values) => {
-        await sleep(300);
-        const pigeon: Pigeon = {
-          ring: values.ring,
-          sex: values.sexe,
-          race: values.race,
-          couleur: "—",
-          age: "< 1 an",
-          statut: "Actif",
-          cage: "—",
-        };
-        return { data: pigeon };
-      },
+      query: (body) => ({
+        url: "pigeons",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: SinglePigeon) => response.data,
       invalidatesTags: [{ type: "Pigeon", id: "LIST" }],
+    }),
+
+    updatePigeon: build.mutation<Pigeon, { id: number; data: PigeonUpdateValues }>({
+      query: ({ id, data }) => ({
+        url: `pigeons/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      transformResponse: (response: SinglePigeon) => response.data,
+      invalidatesTags: (_, __, { id }) => [
+        { type: "Pigeon", id },
+        { type: "Pigeon", id: "LIST" },
+      ],
+    }),
+
+    deletePigeon: build.mutation<void, number>({
+      query: (id) => ({ url: `pigeons/${id}`, method: "DELETE" }),
+      invalidatesTags: (_, __, id) => [
+        { type: "Pigeon", id },
+        { type: "Pigeon", id: "LIST" },
+      ],
     }),
   }),
   overrideExisting: false,
@@ -53,4 +80,6 @@ export const {
   useGetPigeonsQuery,
   useGetPigeonQuery,
   useCreatePigeonMutation,
+  useUpdatePigeonMutation,
+  useDeletePigeonMutation,
 } = pigeonApi;

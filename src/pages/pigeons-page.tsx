@@ -24,12 +24,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, Search, MoreHorizontal, Bird, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import type { PigeonStatus } from "@/types/pigeon";
+import type { PigeonStatut, PigeonSexe } from "@/types/pigeon";
 
 const PAGE_SIZE = 10;
 
-type SexFilter = "all" | "M" | "F";
-type StatusFilter = "all" | PigeonStatus;
+const STATUT_LABELS: Record<PigeonStatut, string> = {
+  actif: "Actif",
+  vendu: "Vendu",
+  mort: "Mort",
+  perdu: "Perdu",
+};
+
+type SexFilter = "all" | PigeonSexe;
+type StatusFilter = "all" | PigeonStatut;
 
 export function PigeonsPage() {
   const { data: pigeons = [], isLoading, isError, refetch } = useGetPigeonsQuery();
@@ -49,25 +56,26 @@ export function PigeonsPage() {
     }
   }, []);
 
-  // Reset page when filters change
   useEffect(() => {
     setPage(1);
   }, [q, sexFilter, raceFilter, statusFilter]);
 
   const races = useMemo(
-    () => Array.from(new Set(pigeons.map((p) => p.race))).sort(),
+    () => Array.from(new Set(pigeons.map((p) => p.race).filter(Boolean))).sort() as string[],
     [pigeons],
   );
 
   const filtered = useMemo(
     () =>
       pigeons.filter((p) => {
-        if (sexFilter !== "all" && p.sex !== sexFilter) return false;
+        if (sexFilter !== "all" && p.sexe !== sexFilter) return false;
         if (raceFilter !== "all" && p.race !== raceFilter) return false;
         if (statusFilter !== "all" && p.statut !== statusFilter) return false;
         if (q) {
           const lq = q.toLowerCase();
-          return [p.ring, p.race, p.couleur, p.cage].some((v) => v.toLowerCase().includes(lq));
+          return [p.code_bague, p.race ?? "", p.couleur ?? ""].some((v) =>
+            v.toLowerCase().includes(lq),
+          );
         }
         return true;
       }),
@@ -79,14 +87,14 @@ export function PigeonsPage() {
 
   const form = useForm<PigeonCreateValues>({
     resolver: zodResolver(pigeonCreateSchema),
-    defaultValues: { ring: "", sexe: "M", race: "" },
+    defaultValues: { code_bague: "", sexe: "male", race: "" },
   });
 
   const onAddSubmit = form.handleSubmit(async (values) => {
     await createPigeon(values).unwrap();
-    toast.success(`Pigeon ${values.ring} enregistré.`);
+    toast.success(`Pigeon ${values.code_bague} enregistré.`);
     setAddOpen(false);
-    form.reset({ ring: "", sexe: "M", race: "" });
+    form.reset({ code_bague: "", sexe: "male", race: "" });
   });
 
   return (
@@ -111,11 +119,11 @@ export function PigeonsPage() {
           </DialogHeader>
           <form onSubmit={onAddSubmit} className="space-y-4">
             <InputField
-              id="p-ring"
-              label="Matricule"
+              id="p-code-bague"
+              label="Matricule (code bague)"
               placeholder="ex : SN-2024-001"
-              error={form.formState.errors.ring?.message}
-              {...form.register("ring")}
+              error={form.formState.errors.code_bague?.message}
+              {...form.register("code_bague")}
             />
             <SelectField
               id="p-sexe"
@@ -123,12 +131,12 @@ export function PigeonsPage() {
               error={form.formState.errors.sexe?.message}
               {...form.register("sexe")}
             >
-              <option value="M">Mâle</option>
-              <option value="F">Femelle</option>
+              <option value="male">Mâle</option>
+              <option value="femelle">Femelle</option>
             </SelectField>
             <InputField
               id="p-race"
-              label="Race"
+              label="Race (optionnel)"
               placeholder="ex : Voyageur"
               error={form.formState.errors.race?.message}
               {...form.register("race")}
@@ -156,7 +164,7 @@ export function PigeonsPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher matricule, race, cage…"
+              placeholder="Rechercher matricule, race…"
               className="bg-transparent outline-none text-sm flex-1"
               aria-label="Rechercher un pigeon"
             />
@@ -168,8 +176,8 @@ export function PigeonsPage() {
             aria-label="Filtrer par sexe"
           >
             <option value="all">Tous les sexes</option>
-            <option value="M">Mâle</option>
-            <option value="F">Femelle</option>
+            <option value="male">Mâle</option>
+            <option value="femelle">Femelle</option>
           </select>
           <select
             value={raceFilter}
@@ -189,9 +197,10 @@ export function PigeonsPage() {
             aria-label="Filtrer par statut"
           >
             <option value="all">Tous les statuts</option>
-            <option value="Actif">Actif</option>
-            <option value="Reproduction">Reproduction</option>
-            <option value="Vendu">Vendu</option>
+            <option value="actif">Actif</option>
+            <option value="vendu">Vendu</option>
+            <option value="mort">Mort</option>
+            <option value="perdu">Perdu</option>
           </select>
         </div>
 
@@ -228,8 +237,7 @@ export function PigeonsPage() {
                   <th className="text-left font-medium px-4 py-3">Sexe</th>
                   <th className="text-left font-medium px-4 py-3">Race</th>
                   <th className="text-left font-medium px-4 py-3">Couleur</th>
-                  <th className="text-left font-medium px-4 py-3">Âge</th>
-                  <th className="text-left font-medium px-4 py-3">Cage</th>
+                  <th className="text-left font-medium px-4 py-3">Naissance</th>
                   <th className="text-left font-medium px-4 py-3">Statut</th>
                   <th className="px-4 py-3 w-10"></th>
                 </tr>
@@ -237,53 +245,46 @@ export function PigeonsPage() {
               <tbody>
                 {paginated.map((p) => (
                   <tr
-                    key={p.ring}
+                    key={p.id}
                     className="border-b last:border-0 hover:bg-muted/30 transition-colors"
                   >
                     <td className="px-4 py-3">
                       <Link
                         to="/pigeons/$ring"
-                        params={{ ring: p.ring }}
+                        params={{ ring: String(p.id) }}
                         className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                       >
                         <div
-                          className={`size-8 rounded-lg grid place-items-center ${p.sex === "M" ? "bg-blue-500/10 text-blue-600" : "bg-pink-500/10 text-pink-600"}`}
+                          className={`size-8 rounded-lg grid place-items-center ${p.sexe === "male" ? "bg-blue-500/10 text-blue-600" : "bg-pink-500/10 text-pink-600"}`}
                         >
                           <Bird className="size-4" />
                         </div>
                         <span className="font-mono font-medium text-foreground hover:text-primary">
-                          {p.ring}
+                          {p.code_bague}
                         </span>
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={p.sex === "M" ? "default" : "couple"}>
-                        {p.sex === "M" ? "Mâle" : "Femelle"}
+                      <Badge tone={p.sexe === "male" ? "default" : "couple"}>
+                        {p.sexe === "male" ? "Mâle" : "Femelle"}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">{p.race}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.couleur}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.age}</td>
-                    <td className="px-4 py-3">
-                      <Link
-                        to="/cages/$code"
-                        params={{ code: p.cage }}
-                        className="font-mono text-xs text-primary hover:underline"
-                      >
-                        {p.cage}
-                      </Link>
+                    <td className="px-4 py-3">{p.race ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{p.couleur ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {p.date_naissance ?? "—"}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
                         tone={
-                          p.statut === "Actif"
+                          p.statut === "actif"
                             ? "empty"
-                            : p.statut === "Reproduction"
-                              ? "couple"
-                              : "muted"
+                            : p.statut === "vendu"
+                              ? "muted"
+                              : "single"
                         }
                       >
-                        {p.statut}
+                        {STATUT_LABELS[p.statut]}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
@@ -299,7 +300,7 @@ export function PigeonsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link to="/pigeons/$ring" params={{ ring: p.ring }}>
+                            <Link to="/pigeons/$ring" params={{ ring: String(p.id) }}>
                               Voir la fiche
                             </Link>
                           </DropdownMenuItem>

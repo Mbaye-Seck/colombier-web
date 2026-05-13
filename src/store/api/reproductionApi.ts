@@ -1,17 +1,24 @@
 import { baseApi } from "@/store/baseApi";
-import type { ReproductionCard } from "@/types/reproduction";
-import { getMockReproductions } from "@/services/mock/reproductions";
+import type { Reproduction } from "@/types/reproduction";
 import type { ReproductionCreateValues } from "@/lib/schemas/reproduction";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+type PaginatedReproductions = { data: Reproduction[] };
+type SingleReproduction = { data: Reproduction };
+
+export interface ReproductionListParams {
+  per_page?: number;
+  "filter[statut]"?: string;
+  include?: string;
+}
 
 export const reproductionApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getReproductions: build.query<ReproductionCard[], void>({
-      queryFn: async () => {
-        await sleep(150);
-        return { data: getMockReproductions() };
-      },
+    getReproductions: build.query<Reproduction[], ReproductionListParams | void>({
+      query: (params = {}) => ({
+        url: "reproductions",
+        params: { per_page: 100, include: "couple.male,couple.femelle,pigeons", ...params },
+      }),
+      transformResponse: (response: PaginatedReproductions) => response.data,
       providesTags: (result) =>
         result
           ? [
@@ -21,29 +28,22 @@ export const reproductionApi = baseApi.injectEndpoints({
           : [{ type: "Reproduction", id: "LIST" }],
     }),
 
-    getReproduction: build.query<ReproductionCard | undefined, string>({
-      queryFn: async (id) => {
-        await sleep(100);
-        return { data: getMockReproductions().find((r) => r.id === id) };
-      },
+    getReproduction: build.query<Reproduction, number>({
+      query: (id) => ({
+        url: `reproductions/${id}`,
+        params: { include: "couple.male,couple.femelle,pigeons" },
+      }),
+      transformResponse: (response: SingleReproduction) => response.data,
       providesTags: (_, __, id) => [{ type: "Reproduction", id }],
     }),
 
-    createReproduction: build.mutation<ReproductionCard, ReproductionCreateValues>({
-      queryFn: async (values) => {
-        await sleep(350);
-        const record: ReproductionCard = {
-          id: `R-${String(Date.now()).slice(-3)}`,
-          couple: values.coupleId,
-          pere: "—",
-          mere: "—",
-          ponte: values.ponte,
-          eclosion: values.eclosionPrevue ?? "—",
-          jeunes: 0,
-          jeunesIds: [],
-        };
-        return { data: record };
-      },
+    createReproduction: build.mutation<Reproduction, ReproductionCreateValues>({
+      query: (body) => ({
+        url: "reproductions",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: SingleReproduction) => response.data,
       invalidatesTags: [{ type: "Reproduction", id: "LIST" }],
     }),
   }),

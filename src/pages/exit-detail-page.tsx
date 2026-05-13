@@ -4,15 +4,19 @@ import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Badge, Card } from "@/components/domain";
 import { LoadingSpinner, ErrorAlert } from "@/components/ui/query-states";
 import { useGetExitQuery } from "@/store/api/exitApi";
+import type { SortieType } from "@/types/exit";
 
-const TYPE_CONFIG = {
-  Vente: { tone: "empty" as const, icon: Banknote, label: "Vente" },
-  Décès: { tone: "single" as const, icon: Skull, label: "Décès" },
-  Perte: { tone: "couple" as const, icon: HelpCircle, label: "Perte" },
+const TYPE_CONFIG: Record<SortieType, { tone: "empty" | "single" | "couple"; icon: typeof Banknote; label: string }> = {
+  vente: { tone: "empty", icon: Banknote, label: "Vente" },
+  deces: { tone: "single", icon: Skull, label: "Décès" },
+  perte: { tone: "couple", icon: HelpCircle, label: "Perte" },
 };
 
 export function ExitDetailPage({ id }: { id: string }) {
-  const { data: e, isLoading, isError, refetch } = useGetExitQuery(id);
+  const exitId = Number(id);
+  const { data: e, isLoading, isError, refetch } = useGetExitQuery(exitId, {
+    skip: isNaN(exitId),
+  });
 
   return (
     <AppShell>
@@ -45,14 +49,15 @@ export function ExitDetailPage({ id }: { id: string }) {
       )}
 
       {!isLoading && !isError && e && (() => {
-        const cfg = TYPE_CONFIG[e.type];
+        const cfg = TYPE_CONFIG[e.type_sortie];
         const Icon = cfg.icon;
+        const pigeonLabel = e.pigeon?.code_bague ?? `#${e.pigeon_id}`;
         return (
           <>
             <PageHeader
-              title={e.id}
-              subtitle={e.date}
-              actions={<Badge tone={cfg.tone}>{e.type}</Badge>}
+              title={`Sortie #${e.id}`}
+              subtitle={e.date_sortie}
+              actions={<Badge tone={cfg.tone}>{cfg.label}</Badge>}
             />
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
@@ -68,7 +73,7 @@ export function ExitDetailPage({ id }: { id: string }) {
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Type</div>
-                    <div className="font-semibold">{e.type}</div>
+                    <div className="font-semibold">{cfg.label}</div>
                   </div>
                 </div>
                 <dl className="space-y-2 text-sm">
@@ -77,35 +82,39 @@ export function ExitDetailPage({ id }: { id: string }) {
                     <dd>
                       <Link
                         to="/pigeons/$ring"
-                        params={{ ring: e.ring }}
+                        params={{ ring: String(e.pigeon_id) }}
                         className="font-mono text-primary hover:underline"
                       >
-                        {e.ring}
+                        {pigeonLabel}
                       </Link>
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Date</dt>
-                    <dd className="font-medium">{e.date}</dd>
+                    <dd className="font-medium">{e.date_sortie}</dd>
                   </div>
-                  {e.type === "Vente" && (
+                  {e.type_sortie === "vente" && (
                     <>
                       <div className="flex justify-between gap-4">
                         <dt className="text-muted-foreground">Acheteur</dt>
-                        <dd className="font-medium">{e.acheteur}</dd>
+                        <dd className="font-medium">{e.acheteur ?? "—"}</dd>
                       </div>
                       <div className="flex justify-between gap-4">
                         <dt className="text-muted-foreground">Prix</dt>
-                        <dd className="font-medium">{e.prix}</dd>
+                        <dd className="font-medium">{e.prix != null ? `${e.prix} €` : "—"}</dd>
                       </div>
                     </>
                   )}
-                  {(e.type === "Décès" || e.type === "Perte") && (
+                  {e.type_sortie === "deces" && (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        {e.type === "Décès" ? "Cause" : "Circonstance"}
-                      </dt>
-                      <dd className="font-medium text-right">{e.cause}</dd>
+                      <dt className="text-muted-foreground">Cause</dt>
+                      <dd className="font-medium text-right">{e.cause ?? "—"}</dd>
+                    </div>
+                  )}
+                  {e.type_sortie === "perte" && (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Circonstance</dt>
+                      <dd className="font-medium text-right">{e.circonstance ?? "—"}</dd>
                     </div>
                   )}
                 </dl>

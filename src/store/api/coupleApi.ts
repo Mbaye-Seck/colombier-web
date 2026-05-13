@@ -1,17 +1,25 @@
 import { baseApi } from "@/store/baseApi";
-import type { CoupleSummary } from "@/types/couple";
-import { getMockCouples } from "@/services/mock/couples";
-import type { CoupleCreateValues } from "@/lib/schemas/couple";
+import type { Couple } from "@/types/couple";
+import type { CoupleCreateValues, CoupleUpdateValues } from "@/lib/schemas/couple";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+type PaginatedCouples = { data: Couple[] };
+type SingleCouple = { data: Couple };
+
+export interface CoupleListParams {
+  per_page?: number;
+  "filter[statut]"?: string;
+  "filter[search]"?: string;
+  include?: string;
+}
 
 export const coupleApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getCouples: build.query<CoupleSummary[], void>({
-      queryFn: async () => {
-        await sleep(150);
-        return { data: getMockCouples() };
-      },
+    getCouples: build.query<Couple[], CoupleListParams | void>({
+      query: (params = {}) => ({
+        url: "couples",
+        params: { per_page: 100, include: "male,femelle", ...params },
+      }),
+      transformResponse: (response: PaginatedCouples) => response.data,
       providesTags: (result) =>
         result
           ? [
@@ -21,36 +29,48 @@ export const coupleApi = baseApi.injectEndpoints({
           : [{ type: "Couple", id: "LIST" }],
     }),
 
-    getCouple: build.query<CoupleSummary | undefined, string>({
-      queryFn: async (id) => {
-        await sleep(100);
-        return { data: getMockCouples().find((c) => c.id === id) };
-      },
+    getCouple: build.query<Couple, number>({
+      query: (id) => ({
+        url: `couples/${id}`,
+        params: { include: "male,femelle,reproductions" },
+      }),
+      transformResponse: (response: SingleCouple) => response.data,
       providesTags: (_, __, id) => [{ type: "Couple", id }],
     }),
 
-    createCouple: build.mutation<CoupleSummary, CoupleCreateValues>({
-      queryFn: async (values) => {
-        await sleep(350);
-        const couple: CoupleSummary = {
-          id: `C-${String(Date.now()).slice(-3)}`,
-          male: values.male,
-          femelle: values.femelle,
-          cage: values.cage,
-          date: values.date,
-          active: true,
-          reproductions: 0,
-        };
-        return { data: couple };
-      },
+    createCouple: build.mutation<Couple, CoupleCreateValues>({
+      query: (body) => ({
+        url: "couples",
+        method: "POST",
+        body,
+      }),
+      transformResponse: (response: SingleCouple) => response.data,
       invalidatesTags: [{ type: "Couple", id: "LIST" }],
     }),
 
-    breakCouple: build.mutation<void, string>({
-      queryFn: async () => {
-        await sleep(300);
-        return { data: undefined };
-      },
+    updateCouple: build.mutation<Couple, { id: number; data: CoupleUpdateValues }>({
+      query: ({ id, data }) => ({
+        url: `couples/${id}`,
+        method: "PATCH",
+        body: data,
+      }),
+      transformResponse: (response: SingleCouple) => response.data,
+      invalidatesTags: (_, __, { id }) => [
+        { type: "Couple", id },
+        { type: "Couple", id: "LIST" },
+      ],
+    }),
+
+    breakCouple: build.mutation<Couple, number>({
+      query: (id) => ({
+        url: `couples/${id}`,
+        method: "PATCH",
+        body: {
+          statut: "rompu",
+          date_rupture: new Date().toISOString().slice(0, 10),
+        },
+      }),
+      transformResponse: (response: SingleCouple) => response.data,
       invalidatesTags: (_, __, id) => [
         { type: "Couple", id },
         { type: "Couple", id: "LIST" },
@@ -64,5 +84,6 @@ export const {
   useGetCouplesQuery,
   useGetCoupleQuery,
   useCreateCoupleMutation,
+  useUpdateCoupleMutation,
   useBreakCoupleMutation,
 } = coupleApi;

@@ -24,8 +24,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { CAGE_STATUS_LABELS } from "@/services/mock/cages";
-import type { AviaryId, Cage, CageOccupant, CageStatus } from "@/types/cage";
+import { CAGE_STATUS_LABELS } from "@/types/cage";
+import type { AviaryId, CageView, CageStatus } from "@/types/cage";
 import { AVIARY_IDS } from "@/types/cage";
 import {
   useGetCagesByAviaryQuery,
@@ -40,7 +40,7 @@ export function CageGrid() {
   const [aviary, setAviary] = useState<AviaryId>("A");
   const [filter, setFilter] = useState<"all" | CageStatus>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [selected, setSelected] = useState<Cage | null>(null);
+  const [selected, setSelected] = useState<CageView | null>(null);
 
   const { data: allCages = [], isLoading } = useGetCagesByAviaryQuery(aviary);
 
@@ -60,7 +60,7 @@ export function CageGrid() {
   );
 
   const selectedLive = useMemo(
-    () => (selected ? (allCages.find((c) => c.code === selected.code) ?? selected) : null),
+    () => (selected ? (allCages.find((c) => c.id === selected.id) ?? selected) : null),
     [allCages, selected],
   );
 
@@ -187,7 +187,7 @@ function LegendDot({ tone }: { tone: CageStatus }) {
   return <span className={cn("inline-block size-2 rounded-full", cls)} />;
 }
 
-function CageTile({ cage, active, onClick }: { cage: Cage; active: boolean; onClick: () => void }) {
+function CageTile({ cage, active, onClick }: { cage: CageView; active: boolean; onClick: () => void }) {
   const styles = {
     empty:
       "bg-cage-empty-soft border-cage-empty-border text-cage-empty hover:shadow-md hover:-translate-y-0.5",
@@ -231,7 +231,7 @@ function CageTile({ cage, active, onClick }: { cage: Cage; active: boolean; onCl
   );
 }
 
-function CageDetailsPanel({ cage, onClose }: { cage: Cage | null; onClose: () => void }) {
+function CageDetailsPanel({ cage, onClose }: { cage: CageView | null; onClose: () => void }) {
   const [assignPigeonOpen, setAssignPigeonOpen] = useState(false);
   const [assignCoupleOpen, setAssignCoupleOpen] = useState(false);
 
@@ -290,7 +290,7 @@ function CageDetailsPanel({ cage, onClose }: { cage: Cage | null; onClose: () =>
           <div className="pt-1">
             <Link
               to="/cages/$code"
-              params={{ code: cage.code }}
+              params={{ code: String(cage.backendId) }}
               className="text-sm font-medium text-primary hover:underline"
             >
               Ouvrir la fiche en pleine page
@@ -326,7 +326,6 @@ function CageDetailsPanel({ cage, onClose }: { cage: Cage | null; onClose: () =>
                       </div>
                       <div className="text-xs text-muted-foreground">Matricule : {o.ring}</div>
                       <div className="text-xs text-muted-foreground">Race : {o.race}</div>
-                      <div className="text-xs text-muted-foreground">Âge : {o.age}</div>
                     </div>
                   </div>
                 ))}
@@ -334,20 +333,22 @@ function CageDetailsPanel({ cage, onClose }: { cage: Cage | null; onClose: () =>
             </section>
           )}
 
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Historique
-            </h3>
-            <ul className="space-y-2">
-              {cage.history.map((h, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
-                  <History className="size-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">{h.date} :</span>
-                  <span>{h.label}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          {cage.history.length > 0 && (
+            <section>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Historique
+              </h3>
+              <ul className="space-y-2">
+                {cage.history.map((h, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm">
+                    <History className="size-3.5 text-muted-foreground" />
+                    <span className="text-muted-foreground">{h.date} :</span>
+                    <span>{h.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -370,8 +371,8 @@ function CageDetailsPanel({ cage, onClose }: { cage: Cage | null; onClose: () =>
               >
                 <Users className="size-4" /> Affecter un couple
               </Button>
-              {cage.status !== "empty" && (
-                <ReleaseCageButton code={cage.code} />
+              {cage.status !== "empty" && cage.affectationId != null && (
+                <ReleaseCageButton affectationId={cage.affectationId} code={cage.code} />
               )}
             </div>
           </section>
@@ -381,7 +382,7 @@ function CageDetailsPanel({ cage, onClose }: { cage: Cage | null; onClose: () =>
   );
 }
 
-function ReleaseCageButton({ code }: { code: string }) {
+function ReleaseCageButton({ affectationId, code }: { affectationId: number; code: string }) {
   const [releaseCage, { isLoading }] = useReleaseCageMutation();
   const [open, setOpen] = useState(false);
 
@@ -396,7 +397,7 @@ function ReleaseCageButton({ code }: { code: string }) {
         onConfirm={async () => {
           setOpen(false);
           try {
-            await releaseCage(code).unwrap();
+            await releaseCage(affectationId).unwrap();
             toast.success(`Cage ${code} libérée.`);
           } catch {
             toast.error("Impossible de libérer la cage.");
@@ -423,30 +424,23 @@ function AssignPigeonDialog({
   onClose,
 }: {
   open: boolean;
-  cage: Cage;
+  cage: CageView;
   onClose: () => void;
 }) {
   const { data: pigeons = [] } = useGetPigeonsQuery();
   const [assignPigeon, { isLoading }] = useAssignPigeonMutation();
-  const [selectedRing, setSelectedRing] = useState("");
+  const [selectedPigeonId, setSelectedPigeonId] = useState("");
 
-  const available = pigeons.filter((p) => p.sex === "M" || p.sex === "F");
+  const available = pigeons.filter((p) => p.statut === "actif");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const pigeon = available.find((p) => p.ring === selectedRing);
+    const pigeon = available.find((p) => p.id === Number(selectedPigeonId));
     if (!pigeon) return;
-    const occupant: CageOccupant = {
-      name: pigeon.ring,
-      sex: pigeon.sex,
-      ring: pigeon.ring,
-      race: pigeon.race,
-      age: pigeon.age,
-    };
     try {
-      await assignPigeon({ code: cage.code, occupant }).unwrap();
-      toast.success(`Pigeon ${pigeon.ring} affecté à la cage ${cage.code}.`);
-      setSelectedRing("");
+      await assignPigeon({ backendId: cage.backendId, pigeon_id: pigeon.id }).unwrap();
+      toast.success(`Pigeon ${pigeon.code_bague} affecté à la cage ${cage.code}.`);
+      setSelectedPigeonId("");
       onClose();
     } catch {
       toast.error("Impossible d'affecter le pigeon.");
@@ -469,15 +463,15 @@ function AssignPigeonDialog({
             </label>
             <select
               id="assign-pigeon"
-              value={selectedRing}
-              onChange={(e) => setSelectedRing(e.target.value)}
+              value={selectedPigeonId}
+              onChange={(e) => setSelectedPigeonId(e.target.value)}
               className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
               required
             >
               <option value="">Sélectionner un pigeon…</option>
               {available.map((p) => (
-                <option key={p.ring} value={p.ring}>
-                  {p.ring} — {p.sex === "M" ? "Mâle" : "Femelle"} · {p.race}
+                <option key={p.id} value={p.id}>
+                  {p.code_bague} — {p.sexe === "male" ? "Mâle" : "Femelle"}{p.race ? ` · ${p.race}` : ""}
                 </option>
               ))}
             </select>
@@ -486,7 +480,7 @@ function AssignPigeonDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading || !selectedRing}>
+            <Button type="submit" disabled={isLoading || !selectedPigeonId}>
               {isLoading ? <Loader2 className="size-4 animate-spin" /> : "Affecter"}
             </Button>
           </DialogFooter>
@@ -502,42 +496,22 @@ function AssignCoupleDialog({
   onClose,
 }: {
   open: boolean;
-  cage: Cage;
+  cage: CageView;
   onClose: () => void;
 }) {
   const { data: couples = [] } = useGetCouplesQuery();
-  const { data: pigeons = [] } = useGetPigeonsQuery();
   const [assignCouple, { isLoading }] = useAssignCoupleMutation();
   const [selectedCoupleId, setSelectedCoupleId] = useState("");
 
-  const activeCouples = couples.filter((c) => c.active);
+  const activeCouples = couples.filter((c) => c.statut === "actif");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const couple = activeCouples.find((c) => c.id === selectedCoupleId);
+    const couple = activeCouples.find((c) => c.id === Number(selectedCoupleId));
     if (!couple) return;
-
-    const maleP = pigeons.find((p) => p.ring === couple.male);
-    const femaleP = pigeons.find((p) => p.ring === couple.femelle);
-
-    const male: CageOccupant = {
-      name: couple.male,
-      sex: "M",
-      ring: couple.male,
-      race: maleP?.race ?? "—",
-      age: maleP?.age ?? "—",
-    };
-    const female: CageOccupant = {
-      name: couple.femelle,
-      sex: "F",
-      ring: couple.femelle,
-      race: femaleP?.race ?? "—",
-      age: femaleP?.age ?? "—",
-    };
-
     try {
-      await assignCouple({ code: cage.code, male, female }).unwrap();
-      toast.success(`Couple ${couple.id} affecté à la cage ${cage.code}.`);
+      await assignCouple({ backendId: cage.backendId, couple_id: couple.id }).unwrap();
+      toast.success(`Couple #${couple.id} affecté à la cage ${cage.code}.`);
       setSelectedCoupleId("");
       onClose();
     } catch {
@@ -569,7 +543,7 @@ function AssignCoupleDialog({
               <option value="">Sélectionner un couple…</option>
               {activeCouples.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.id} — {c.male} × {c.femelle}
+                  #{c.id} — {c.male?.code_bague ?? `ID ${c.male_id}`} × {c.femelle?.code_bague ?? `ID ${c.femelle_id}`}
                 </option>
               ))}
             </select>

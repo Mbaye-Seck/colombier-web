@@ -140,7 +140,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <div className="size-8 rounded-full bg-linear-to-br from-primary to-primary/60 text-primary-foreground grid place-items-center text-xs font-semibold shrink-0">
                 {user
-                  ? user.name
+                  ? user.nom_complet
                       .split(" ")
                       .map((n) => n[0])
                       .join("")
@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : "?"}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{user?.name ?? "—"}</div>
+                <div className="text-sm font-medium truncate">{user?.nom_complet ?? "—"}</div>
                 <div className="text-[11px] text-muted-foreground truncate capitalize">
                   {user?.role ?? ""}
                 </div>
@@ -209,7 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       <div className="size-4 grid place-items-center">
                         <div className="size-4 rounded-full bg-linear-to-br from-primary to-primary/60 text-[8px] font-bold text-primary-foreground grid place-items-center">
                           {user
-                            ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+                            ? user.nom_complet.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
                             : "?"}
                         </div>
                       </div>
