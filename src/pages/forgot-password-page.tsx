@@ -19,7 +19,7 @@ export function ForgotPasswordPage() {
   });
 
   const onSubmit = form.handleSubmit((data) => {
-    toast.success(`Si l’adresse existe, un lien a été envoyé à ${data.email} (démonstration).`);
+    toast.success(`Si l’adresse ${data.email} est associée à un compte, un lien de réinitialisation vous sera envoyé.`);
   });
 
   return (

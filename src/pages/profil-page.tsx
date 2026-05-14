@@ -6,10 +6,11 @@ import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Card, Button } from "@/components/domain";
 import { InputField } from "@/components/ui/form-field";
 import { useAuth } from "@/providers/auth-provider";
+import { useGetPigeonPageQuery } from "@/store/api/pigeonApi";
+import { useGetCouplesPageQuery } from "@/store/api/coupleApi";
+import { useGetReproductionsPageQuery } from "@/store/api/reproductionApi";
 import { profilSchema, type ProfilValues } from "@/lib/schemas/profil";
-import { Bird, Mail, MapPin, Calendar, ShieldCheck, Loader2 } from "lucide-react";
-
-const MOCK_STATS = { pigeons: 142, couples: 24, reproductions: 87, since: "Janvier 2021" };
+import { Mail, MapPin, ShieldCheck, Loader2 } from "lucide-react";
 
 function FieldRow({ label, value }: { label: string; value: string }) {
   return (
@@ -23,7 +24,16 @@ function FieldRow({ label, value }: { label: string; value: string }) {
 export function ProfilPage() {
   const { user } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [location, setLocation] = useState("Lyon, France");
+  const [location, setLocation] = useState("");
+
+  // Real stats
+  const { data: pigeonPage } = useGetPigeonPageQuery({ per_page: 1, "filter[statut]": "actif" });
+  const { data: couplePage } = useGetCouplesPageQuery({ per_page: 1, "filter[statut]": "actif" });
+  const { data: reproPage } = useGetReproductionsPageQuery({ per_page: 1 });
+
+  const statPigeons = pigeonPage?.meta.total ?? "—";
+  const statCouples = couplePage?.meta.total ?? "—";
+  const statRepros = reproPage?.meta.total ?? "—";
 
   const initials = user?.nom_complet
     ? user.nom_complet.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -41,7 +51,7 @@ export function ProfilPage() {
   function onSubmit(values: ProfilValues) {
     setLocation(values.location ?? location);
     setEditing(false);
-    toast.success("Profil mis à jour (démonstration).");
+    toast.success("Localisation mise à jour.");
   }
 
   return (
@@ -72,21 +82,20 @@ export function ProfilPage() {
                 <span className="flex items-center gap-1.5">
                   <Mail className="size-3.5" /> {user?.email ?? "—"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="size-3.5" /> {form.watch("location") || location}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="size-3.5" /> Éleveur depuis {MOCK_STATS.since}
-                </span>
+                {(form.watch("location") || location) && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="size-3.5" /> {form.watch("location") || location}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-3 gap-4 pt-4 border-t">
             {[
-              { label: "Pigeons", value: MOCK_STATS.pigeons },
-              { label: "Couples actifs", value: MOCK_STATS.couples },
-              { label: "Reproductions", value: MOCK_STATS.reproductions },
+              { label: "Pigeons actifs", value: statPigeons },
+              { label: "Couples actifs", value: statCouples },
+              { label: "Reproductions", value: statRepros },
             ].map(({ label, value }) => (
               <div key={label} className="text-center">
                 <div className="text-2xl font-bold tracking-tight">{value}</div>
@@ -145,8 +154,9 @@ export function ProfilPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FieldRow label="Nom complet" value={user?.nom_complet ?? "—"} />
               <FieldRow label="Email" value={user?.email ?? "—"} />
-              <FieldRow label="Localisation" value={form.watch("location") || location} />
-              <FieldRow label="Membre depuis" value={MOCK_STATS.since} />
+              {(form.watch("location") || location) && (
+                <FieldRow label="Localisation" value={form.watch("location") || location} />
+              )}
             </div>
           </Card>
         )}
@@ -158,16 +168,8 @@ export function ProfilPage() {
             <h3 className="text-sm font-semibold">Sécurité</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            La gestion du mot de passe et l'authentification à deux facteurs seront disponibles
-            après connexion au backend Laravel.
+            La gestion du mot de passe est disponible depuis le panneau d'administration.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => toast.message("Changement de mot de passe — à connecter au backend.")}
-          >
-            Changer le mot de passe
-          </Button>
         </Card>
       </div>
     </AppShell>

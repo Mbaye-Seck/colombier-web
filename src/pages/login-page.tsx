@@ -39,8 +39,6 @@ export function LoginPage() {
       toast.success(`Bienvenue, ${session.user.nom_complet} !`);
       void navigate({ to: redirectTo ?? "/" });
     } catch (err) {
-      console.error("[auth] login failed:", err);
-
       const status =
         err && typeof err === "object" && "status" in err
           ? (err as { status: number | string }).status

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/theme-provider";
 import { useAuth } from "@/providers/auth-provider";
+import { useGetNotificationsQuery } from "@/store/api/notificationApi";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 
@@ -68,6 +69,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
+  const { data: notifications = [] } = useGetNotificationsQuery();
+  const hasUnread = notifications.some((n) => n.unread);
 
   function handleLogout() {
     logout();
@@ -199,7 +202,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                       onClick={() => setMobileOpen(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted"
                     >
-                      <Bell className="size-4" /> Notifications
+                      <span className="relative">
+                        <Bell className="size-4" />
+                        {hasUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-destructive" />
+                        )}
+                      </span>
+                      Notifications
                     </Link>
                     <Link
                       to="/profil"
@@ -262,7 +271,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-label="Notifications"
               >
                 <Bell className="size-4" />
-                <span className="absolute top-2 right-2 size-1.5 rounded-full bg-destructive" />
+                {hasUnread && (
+                  <span className="absolute top-2 right-2 size-1.5 rounded-full bg-destructive" />
+                )}
               </Link>
             </div>
           </header>

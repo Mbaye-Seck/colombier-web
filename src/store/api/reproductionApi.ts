@@ -30,6 +30,7 @@ export interface ReproductionPageParams {
 
 export interface ReproductionListParams {
   per_page?: number;
+  sort?: string;
   "filter[statut]"?: string;
   "filter[couple_id]"?: number;
   include?: string;

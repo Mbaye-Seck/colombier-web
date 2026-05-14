@@ -98,7 +98,7 @@ export function ParametresPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => toast.message("Sélection de la langue — disponible après connexion au backend.")}
+              onClick={() => toast.message("Sélection de la langue bientôt disponible.")}
             >
               Changer
             </Button>
@@ -112,14 +112,13 @@ export function ParametresPage() {
             <span className="text-destructive">Zone de danger</span>
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Ces actions sont irréversibles. La suppression de compte et l'export des données
-            seront gérés côté backend Laravel.
+            Ces actions sont irréversibles. Contactez l'administrateur pour la suppression de compte.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => toast.message("Export de données — à connecter au backend.")}
+              onClick={() => toast.message("Export de données bientôt disponible.")}
             >
               Exporter mes données
             </Button>
