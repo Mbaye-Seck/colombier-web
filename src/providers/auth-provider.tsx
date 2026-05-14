@@ -18,11 +18,19 @@ function AuthValidator({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isError) {
       dispatch(clearAuth());
-      void router.invalidate();
     } else if (freshUser) {
       dispatch(updateUser(freshUser));
     }
-  }, [freshUser, isError, dispatch, router]);
+  }, [freshUser, isError, dispatch]);
+
+  // When auth is lost from any source (logout, 401, session expiry),
+  // force the router to re-evaluate the current route's beforeLoad guards.
+  // This triggers requireAuth to redirect to /login even without an explicit navigate() call.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      void router.invalidate();
+    }
+  }, [isAuthenticated, router]);
 
   return <>{children}</>;
 }

@@ -144,7 +144,7 @@ export function ReproductionsPage() {
               </label>
               <select
                 id="r-couple"
-                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
                 {...form.register("couple_id", { valueAsNumber: true })}
               >
                 <option value="">Sélectionner un couple actif…</option>

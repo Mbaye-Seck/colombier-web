@@ -201,7 +201,7 @@ export function CouplesPage() {
               </label>
               <select
                 id="c-male"
-                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
                 {...form.register("male_id", { valueAsNumber: true })}
               >
                 <option value="">Sélectionner un mâle…</option>
@@ -224,7 +224,7 @@ export function CouplesPage() {
               </label>
               <select
                 id="c-femelle"
-                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
                 {...form.register("femelle_id", { valueAsNumber: true })}
               >
                 <option value="">Sélectionner une femelle…</option>

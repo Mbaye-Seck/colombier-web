@@ -103,7 +103,7 @@ export function CageGrid() {
                   type="button"
                   onClick={() => setFilter(f)}
                   className={cn(
-                    "px-3 text-xs font-medium transition-colors flex items-center gap-1.5",
+                    "px-3 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer",
                     filter === f
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:bg-muted/60",
@@ -119,7 +119,7 @@ export function CageGrid() {
               <button
                 type="button"
                 onClick={() => setView("grid")}
-                className={cn("px-2.5", view === "grid" ? "bg-muted" : "hover:bg-muted/60")}
+                className={cn("px-2.5 cursor-pointer", view === "grid" ? "bg-muted" : "hover:bg-muted/60")}
                 aria-label="Vue grille"
               >
                 <LayoutGrid className="size-4" />
@@ -127,7 +127,7 @@ export function CageGrid() {
               <button
                 type="button"
                 onClick={() => setView("list")}
-                className={cn("px-2.5", view === "list" ? "bg-muted" : "hover:bg-muted/60")}
+                className={cn("px-2.5 cursor-pointer", view === "list" ? "bg-muted" : "hover:bg-muted/60")}
                 aria-label="Vue liste"
               >
                 <List className="size-4" />
@@ -159,7 +159,7 @@ export function CageGrid() {
                 key={cage.id}
                 type="button"
                 onClick={() => setSelected(cage)}
-                className="w-full flex items-center gap-4 px-4 py-3 hover:bg-muted/50 text-left"
+                className="w-full flex items-center gap-4 px-4 py-3 hover:bg-muted/50 text-left cursor-pointer"
               >
                 <span className="font-mono font-semibold w-12">{cage.code}</span>
                 <Badge tone={cage.status}>{CAGE_STATUS_LABELS[cage.status]}</Badge>
@@ -206,7 +206,7 @@ function CageTile({ cage, active, onClick }: { cage: CageView; active: boolean; 
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative aspect-4/3 rounded-xl border-2 p-3 flex flex-col transition-all duration-200 text-left",
+        "group relative aspect-4/3 rounded-xl border-2 p-3 flex flex-col transition-all duration-200 text-left cursor-pointer",
         styles,
         active &&
           "ring-2 ring-primary ring-offset-2 ring-offset-background -translate-y-0.5 shadow-md",

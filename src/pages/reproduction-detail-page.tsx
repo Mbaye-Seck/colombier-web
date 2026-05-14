@@ -148,7 +148,7 @@ function EditReproductionDialog({
                 </label>
                 <select
                   id="edit-r-statut"
-                  className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+                  className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
                   {...form.register("statut")}
                 >
                   <option value="en_cours">En cours</option>
@@ -379,7 +379,7 @@ function GenerateOffspringDialog({
                   <button
                     type="button"
                     onClick={() => remove(index)}
-                    className="absolute top-2 right-2 size-5 rounded-full bg-muted hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-colors"
+                    className="absolute top-2 right-2 size-5 rounded-full bg-muted hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-colors cursor-pointer"
                     aria-label="Supprimer ce jeune"
                   >
                     <X className="size-3" />

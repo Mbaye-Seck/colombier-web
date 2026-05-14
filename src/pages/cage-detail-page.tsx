@@ -129,7 +129,7 @@ function EditCageDialog({
             </label>
             <select
               id="ec-type"
-              className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+              className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
               {...form.register("type")}
             >
               {CAGE_TYPE.map((t) => (

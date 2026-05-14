@@ -26,7 +26,6 @@ export function ProfilPage() {
   const [editing, setEditing] = useState(false);
   const [location, setLocation] = useState("");
 
-  // Real stats
   const { data: pigeonPage } = useGetPigeonPageQuery({ per_page: 1, "filter[statut]": "actif" });
   const { data: couplePage } = useGetCouplesPageQuery({ per_page: 1, "filter[statut]": "actif" });
   const { data: reproPage } = useGetReproductionsPageQuery({ per_page: 1 });

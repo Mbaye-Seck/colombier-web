@@ -13,12 +13,13 @@ import {
   Menu,
   Settings,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/theme-provider";
-import { useAuth } from "@/providers/auth-provider";
 import { useGetNotificationsQuery } from "@/store/api/notificationApi";
+import { useLogoutMutation } from "@/store/api/authApi";
+import { useAuth } from "@/providers/auth-provider";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 
@@ -65,18 +66,31 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { resolved, toggle } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
   const { data: notifications = [] } = useGetNotificationsQuery();
   const hasUnread = notifications.some((n) => n.unread);
+  const [logoutMutation] = useLogoutMutation();
+
+  // React-level auth gate: when auth is lost (logout, 401, session expiry),
+  // immediately stop rendering protected content and navigate to login.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      void router.navigate({ to: "/login" });
+    }
+  }, [isAuthenticated, router]);
 
   function handleLogout() {
-    logout();
-    router.invalidate();
+    void logoutMutation();
+    void router.navigate({ to: "/login" });
     toast.success("Vous avez été déconnecté.");
   }
+
+  // Synchronous render gate — prevents any flash of protected content
+  // between when auth state clears and when the navigation completes.
+  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground">

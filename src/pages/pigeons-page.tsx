@@ -81,7 +81,7 @@ type StatusFilter = "all" | PigeonStatut;
 export function PigeonsPage() {
   // ── Filter state ────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState(""); // debounced value sent to server
+  const [search, setSearch] = useState("");
   const [sexFilter, setSexFilter] = useState<SexFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
@@ -397,7 +397,7 @@ export function PigeonsPage() {
           <select
             value={sexFilter}
             onChange={(e) => setSexFilter(e.target.value as SexFilter)}
-            className="h-9 rounded-lg border bg-background px-3 text-sm"
+            className="h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
             aria-label="Filtrer par sexe"
           >
             <option value="all">Tous les sexes</option>
@@ -407,7 +407,7 @@ export function PigeonsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="h-9 rounded-lg border bg-background px-3 text-sm"
+            className="h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
             aria-label="Filtrer par statut"
           >
             <option value="all">Tous les statuts</option>
@@ -517,7 +517,7 @@ export function PigeonsPage() {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="size-8 grid place-items-center rounded-lg hover:bg-muted"
+                            className="size-8 grid place-items-center rounded-lg hover:bg-muted cursor-pointer"
                             aria-label="Actions"
                           >
                             <MoreHorizontal className="size-4" />

@@ -128,7 +128,7 @@ export function ExitsPage() {
               </label>
               <select
                 id="e-pigeon"
-                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
                 {...form.register("pigeon_id", { valueAsNumber: true })}
               >
                 <option value="">Sélectionner un pigeon actif…</option>
