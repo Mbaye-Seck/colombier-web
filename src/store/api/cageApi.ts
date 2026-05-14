@@ -1,10 +1,12 @@
 import { baseApi } from "@/store/baseApi";
-import type { Cage, CageView, CageOccupant, CageStatus, AviaryId } from "@/types/cage";
+import type { Cage, CageView, CageOccupant, CageStatus, AviaryId, AffectationCage } from "@/types/cage";
 import type { Pigeon } from "@/types/pigeon";
 
 type PaginatedCages = { data: Cage[] };
+type PaginatedAffectations = { data: AffectationCage[] };
 type SingleCage = { data: Cage };
-type SingleAffectation = { data: { id: number } };
+
+const CAGE_INCLUDES = "affectationActive.pigeon,affectationActive.couple.male,affectationActive.couple.femelle";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,9 +45,14 @@ function toCageView(cage: Cage): CageView {
     code: cage.numero,
     backendId: cage.id,
     affectationId: cage.affectation_active?.id,
+    coupleId: cage.affectation_active?.couple_id ?? null,
     status,
     occupants,
     history: [],
+    nom: cage.nom,
+    type: cage.type,
+    capacite: cage.capacite,
+    superficie: cage.superficie,
   };
 }
 
@@ -56,10 +63,7 @@ export const cageApi = baseApi.injectEndpoints({
     getCages: build.query<CageView[], void>({
       query: () => ({
         url: "cages",
-        params: {
-          per_page: 200,
-          include: "affectationActive.pigeon,affectationActive.couple",
-        },
+        params: { per_page: 200, include: CAGE_INCLUDES },
       }),
       transformResponse: (response: PaginatedCages) => response.data.map(toCageView),
       providesTags: (result) =>
@@ -75,10 +79,7 @@ export const cageApi = baseApi.injectEndpoints({
       queryFn: async (aviary, _api, _extra, baseQuery) => {
         const result = await baseQuery({
           url: "cages",
-          params: {
-            per_page: 200,
-            include: "affectationActive.pigeon,affectationActive.couple",
-          },
+          params: { per_page: 200, include: CAGE_INCLUDES },
         });
         if (result.error) return { error: result.error };
         const all = (result.data as PaginatedCages).data.map(toCageView);
@@ -90,17 +91,52 @@ export const cageApi = baseApi.injectEndpoints({
           ? [
               ...result.map(({ backendId }) => ({ type: "Cage" as const, id: backendId })),
               { type: "Cage", id: aviary },
+              { type: "Cage", id: "LIST" },
             ]
-          : [{ type: "Cage", id: aviary }],
+          : [{ type: "Cage", id: aviary }, { type: "Cage", id: "LIST" }],
     }),
 
     getCage: build.query<CageView, number>({
       query: (id) => ({
         url: `cages/${id}`,
-        params: { include: "affectationActive.pigeon,affectationActive.couple" },
+        params: { include: CAGE_INCLUDES },
       }),
       transformResponse: (response: SingleCage) => toCageView(response.data),
-      providesTags: (_, __, id) => [{ type: "Cage", id }],
+      providesTags: (_, __, id) => [{ type: "Cage", id }, { type: "Cage", id: "LIST" }],
+    }),
+
+    getAffectationsByCage: build.query<AffectationCage[], number>({
+      query: (cageId) => ({
+        url: "affectation-cages",
+        params: {
+          "filter[cage_id]": cageId,
+          include: "pigeon,couple",
+          per_page: 100,
+          sort: "-date_affectation",
+        },
+      }),
+      transformResponse: (response: PaginatedAffectations) => response.data,
+      providesTags: (_, __, cageId) => [
+        { type: "AffectationCage", id: cageId },
+        { type: "AffectationCage", id: "LIST" },
+      ],
+    }),
+
+    createCage: build.mutation<CageView, { numero: string; nom: string; type: string; capacite?: number | null; superficie?: number | null }>({
+      query: (data) => ({ url: "cages", method: "POST", body: data }),
+      transformResponse: (response: SingleCage) => toCageView(response.data),
+      invalidatesTags: [{ type: "Cage", id: "LIST" }],
+    }),
+
+    updateCage: build.mutation<CageView, { id: number; data: Partial<{ numero: string; nom: string; type: string; capacite: number | null; superficie: number | null }> }>({
+      query: ({ id, data }) => ({ url: `cages/${id}`, method: "PATCH", body: data }),
+      transformResponse: (response: SingleCage) => toCageView(response.data),
+      invalidatesTags: (_, __, { id }) => [{ type: "Cage", id }, { type: "Cage", id: "LIST" }],
+    }),
+
+    deleteCage: build.mutation<void, number>({
+      query: (id) => ({ url: `cages/${id}`, method: "DELETE" }),
+      invalidatesTags: (_, __, id) => [{ type: "Cage", id }, { type: "Cage", id: "LIST" }],
     }),
 
     assignPigeon: build.mutation<void, { backendId: number; pigeon_id: number; motif?: string }>({
@@ -109,8 +145,10 @@ export const cageApi = baseApi.injectEndpoints({
         method: "POST",
         body: { cage_id: backendId, pigeon_id, motif: motif ?? null },
       }),
-      invalidatesTags: [
+      invalidatesTags: (_, __, { backendId }) => [
+        { type: "Cage", id: backendId },
         { type: "Cage", id: "LIST" },
+        { type: "AffectationCage", id: backendId },
         { type: "AffectationCage", id: "LIST" },
       ],
     }),
@@ -121,8 +159,10 @@ export const cageApi = baseApi.injectEndpoints({
         method: "POST",
         body: { cage_id: backendId, couple_id, motif: motif ?? null },
       }),
-      invalidatesTags: [
+      invalidatesTags: (_, __, { backendId }) => [
+        { type: "Cage", id: backendId },
         { type: "Cage", id: "LIST" },
+        { type: "AffectationCage", id: backendId },
         { type: "AffectationCage", id: "LIST" },
       ],
     }),
@@ -133,7 +173,6 @@ export const cageApi = baseApi.injectEndpoints({
         method: "PATCH",
         body: {},
       }),
-      transformResponse: (_response: SingleAffectation) => undefined,
       invalidatesTags: [
         { type: "Cage", id: "LIST" },
         { type: "AffectationCage", id: "LIST" },
@@ -147,6 +186,10 @@ export const {
   useGetCagesQuery,
   useGetCagesByAviaryQuery,
   useGetCageQuery,
+  useGetAffectationsByCageQuery,
+  useCreateCageMutation,
+  useUpdateCageMutation,
+  useDeleteCageMutation,
   useAssignPigeonMutation,
   useAssignCoupleMutation,
   useReleaseCageMutation,

@@ -58,9 +58,14 @@ export interface CageView {
   code: string;
   backendId: number;
   affectationId?: number;
+  coupleId: number | null;
   status: CageStatus;
   occupants: CageOccupant[];
   history: CageHistoryItem[];
+  nom: string;
+  type: CageType;
+  capacite: number | null;
+  superficie: number | null;
 }
 
 export const CAGE_STATUS_LABELS: Record<CageStatus, string> = {

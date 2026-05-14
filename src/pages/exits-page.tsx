@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
+import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { AppShell } from "@/layouts/app-shell";
@@ -36,12 +37,26 @@ const FILTER_OPTIONS: { value: "tous" | SortieType; label: string }[] = [
 
 type ExitFilter = "tous" | SortieType;
 
+function applyApiErrors<T extends FieldValues>(
+  err: unknown,
+  setError: UseFormSetError<T>,
+): boolean {
+  const errors = (err as { data?: { errors?: Record<string, string[]> } })?.data?.errors;
+  if (!errors) return false;
+  for (const [field, messages] of Object.entries(errors)) {
+    setError(field as Path<T>, { message: messages[0] });
+  }
+  return true;
+}
+
 export function ExitsPage() {
   const { data: exits = [], isLoading, isError, refetch } = useGetExitsQuery();
   const { data: pigeons = [] } = useGetPigeonsQuery();
   const [createExit] = useCreateExitMutation();
   const [filter, setFilter] = useState<ExitFilter>("tous");
   const [addOpen, setAddOpen] = useState(false);
+
+  const activePigeons = useMemo(() => pigeons.filter((p) => p.statut === "actif"), [pigeons]);
 
   const filtered = useMemo(
     () => exits.filter((e) => filter === "tous" || e.type_sortie === filter),
@@ -67,11 +82,17 @@ export function ExitsPage() {
   const exitType = form.watch("type_sortie");
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await createExit(values).unwrap();
-    const pigeon = pigeons.find((p) => p.id === values.pigeon_id);
-    toast.success(`Sortie ${TYPE_CONFIG[values.type_sortie].label} pour ${pigeon?.code_bague ?? `#${values.pigeon_id}`} enregistrée.`);
-    setAddOpen(false);
-    form.reset();
+    try {
+      await createExit(values).unwrap();
+      const pigeon = activePigeons.find((p) => p.id === values.pigeon_id);
+      toast.success(`Sortie ${TYPE_CONFIG[values.type_sortie].label} pour ${pigeon?.code_bague ?? `#${values.pigeon_id}`} enregistrée.`);
+      setAddOpen(false);
+      form.reset();
+    } catch (err) {
+      if (!applyApiErrors(err, form.setError)) {
+        form.setError("root", { message: "Une erreur est survenue. Veuillez réessayer." });
+      }
+    }
   });
 
   return (
@@ -86,13 +107,21 @@ export function ExitsPage() {
         }
       />
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) form.reset(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nouvelle sortie</DialogTitle>
             <DialogDescription>Enregistrez une vente, un décès ou une perte.</DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
+            {form.formState.errors.root && (
+              <div
+                role="alert"
+                className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive"
+              >
+                {form.formState.errors.root.message}
+              </div>
+            )}
             <div>
               <label className="text-xs font-medium text-muted-foreground" htmlFor="e-pigeon">
                 Pigeon
@@ -102,8 +131,8 @@ export function ExitsPage() {
                 className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
                 {...form.register("pigeon_id", { valueAsNumber: true })}
               >
-                <option value="">Sélectionner un pigeon…</option>
-                {pigeons.map((p) => (
+                <option value="">Sélectionner un pigeon actif…</option>
+                {activePigeons.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.code_bague}{p.race ? ` — ${p.race}` : ""}
                   </option>

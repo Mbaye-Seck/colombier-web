@@ -21,3 +21,13 @@ export const affectationCreateSchema = z.object({
 });
 
 export type AffectationCreateValues = z.infer<typeof affectationCreateSchema>;
+
+export const cageUpdateSchema = z.object({
+  numero: z.string().min(1, "Numéro requis").max(50, "Max 50 caractères").optional(),
+  nom: z.string().min(1, "Nom requis").max(100, "Max 100 caractères").optional(),
+  type: z.enum(CAGE_TYPE).optional(),
+  capacite: z.number().int().min(1).max(255).nullable().optional(),
+  superficie: z.number().min(0).max(9999.99).nullable().optional(),
+});
+
+export type CageUpdateValues = z.infer<typeof cageUpdateSchema>;

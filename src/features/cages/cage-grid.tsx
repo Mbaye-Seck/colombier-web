@@ -28,6 +28,7 @@ import { CAGE_STATUS_LABELS } from "@/types/cage";
 import type { AviaryId, CageView, CageStatus } from "@/types/cage";
 import { AVIARY_IDS } from "@/types/cage";
 import {
+  useGetCagesQuery,
   useGetCagesByAviaryQuery,
   useAssignPigeonMutation,
   useAssignCoupleMutation,
@@ -43,6 +44,9 @@ export function CageGrid() {
   const [selected, setSelected] = useState<CageView | null>(null);
 
   const { data: allCages = [], isLoading } = useGetCagesByAviaryQuery(aviary);
+  // Pre-fetch all cages at mount so the assign dialogs hit the cache immediately
+  // (aviary query only covers one volière; dialogs need cross-volière occupancy data)
+  useGetCagesQuery();
 
   const cages = useMemo(
     () => allCages.filter((c) => (filter === "all" ? true : c.status === filter)),
@@ -428,10 +432,18 @@ function AssignPigeonDialog({
   onClose: () => void;
 }) {
   const { data: pigeons = [] } = useGetPigeonsQuery();
+  const { data: allCages = [], isLoading: isLoadingCages } = useGetCagesQuery();
   const [assignPigeon, { isLoading }] = useAssignPigeonMutation();
   const [selectedPigeonId, setSelectedPigeonId] = useState("");
 
-  const available = pigeons.filter((p) => p.statut === "actif");
+  // Pigeons already housed in any cage
+  const occupiedPigeonIds = new Set(
+    allCages.flatMap((c) => c.occupants.map((o) => o.pigeonId)),
+  );
+
+  const available = pigeons.filter(
+    (p) => p.statut === "actif" && !occupiedPigeonIds.has(p.id),
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -442,8 +454,14 @@ function AssignPigeonDialog({
       toast.success(`Pigeon ${pigeon.code_bague} affecté à la cage ${cage.code}.`);
       setSelectedPigeonId("");
       onClose();
-    } catch {
-      toast.error("Impossible d'affecter le pigeon.");
+    } catch (err) {
+      const data = (err as { data?: { errors?: Record<string, string[]>; message?: string } })?.data;
+      const msg =
+        data?.errors?.pigeon_id?.[0] ??
+        data?.errors?.cage_id?.[0] ??
+        data?.message ??
+        "Impossible d'affecter le pigeon.";
+      toast.error(msg);
     }
   }
 
@@ -453,7 +471,7 @@ function AssignPigeonDialog({
         <DialogHeader>
           <DialogTitle>Affecter un pigeon</DialogTitle>
           <DialogDescription>
-            Cage {cage.code} — sélectionnez un pigeon à affecter.
+            Cage {cage.code} — sélectionnez un pigeon disponible.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -466,21 +484,29 @@ function AssignPigeonDialog({
               value={selectedPigeonId}
               onChange={(e) => setSelectedPigeonId(e.target.value)}
               className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+              disabled={isLoadingCages}
               required
             >
-              <option value="">Sélectionner un pigeon…</option>
-              {available.map((p) => (
+              <option value="">
+                {isLoadingCages ? "Chargement…" : "Sélectionner un pigeon…"}
+              </option>
+              {!isLoadingCages && available.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.code_bague} — {p.sexe === "male" ? "Mâle" : "Femelle"}{p.race ? ` · ${p.race}` : ""}
                 </option>
               ))}
             </select>
+            {!isLoadingCages && available.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Aucun pigeon actif disponible (tous déjà affectés).
+              </p>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading || !selectedPigeonId}>
+            <Button type="submit" disabled={isLoading || isLoadingCages || !selectedPigeonId}>
               {isLoading ? <Loader2 className="size-4 animate-spin" /> : "Affecter"}
             </Button>
           </DialogFooter>
@@ -500,22 +526,36 @@ function AssignCoupleDialog({
   onClose: () => void;
 }) {
   const { data: couples = [] } = useGetCouplesQuery();
+  const { data: allCages = [], isLoading: isLoadingCages } = useGetCagesQuery();
   const [assignCouple, { isLoading }] = useAssignCoupleMutation();
   const [selectedCoupleId, setSelectedCoupleId] = useState("");
 
-  const activeCouples = couples.filter((c) => c.statut === "actif");
+  // Couples already assigned to any cage (across all aviaries)
+  const occupiedCoupleIds = new Set(
+    allCages.map((c) => c.coupleId).filter((id): id is number => id !== null),
+  );
+
+  const availableCouples = couples.filter(
+    (c) => c.statut === "actif" && !occupiedCoupleIds.has(c.id),
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const couple = activeCouples.find((c) => c.id === Number(selectedCoupleId));
+    const couple = availableCouples.find((c) => c.id === Number(selectedCoupleId));
     if (!couple) return;
     try {
       await assignCouple({ backendId: cage.backendId, couple_id: couple.id }).unwrap();
       toast.success(`Couple #${couple.id} affecté à la cage ${cage.code}.`);
       setSelectedCoupleId("");
       onClose();
-    } catch {
-      toast.error("Impossible d'affecter le couple.");
+    } catch (err) {
+      const data = (err as { data?: { errors?: Record<string, string[]>; message?: string } })?.data;
+      const msg =
+        data?.errors?.couple_id?.[0] ??
+        data?.errors?.cage_id?.[0] ??
+        data?.message ??
+        "Impossible d'affecter le couple.";
+      toast.error(msg);
     }
   }
 
@@ -525,7 +565,7 @@ function AssignCoupleDialog({
         <DialogHeader>
           <DialogTitle>Affecter un couple</DialogTitle>
           <DialogDescription>
-            Cage {cage.code} — sélectionnez un couple actif.
+            Cage {cage.code} — sélectionnez un couple actif sans cage.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -538,21 +578,29 @@ function AssignCoupleDialog({
               value={selectedCoupleId}
               onChange={(e) => setSelectedCoupleId(e.target.value)}
               className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm"
+              disabled={isLoadingCages}
               required
             >
-              <option value="">Sélectionner un couple…</option>
-              {activeCouples.map((c) => (
+              <option value="">
+                {isLoadingCages ? "Chargement…" : "Sélectionner un couple…"}
+              </option>
+              {!isLoadingCages && availableCouples.map((c) => (
                 <option key={c.id} value={c.id}>
                   #{c.id} — {c.male?.code_bague ?? `ID ${c.male_id}`} × {c.femelle?.code_bague ?? `ID ${c.femelle_id}`}
                 </option>
               ))}
             </select>
+            {!isLoadingCages && availableCouples.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Aucun couple actif disponible (tous déjà affectés à une cage).
+              </p>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={isLoading || !selectedCoupleId}>
+            <Button type="submit" disabled={isLoading || isLoadingCages || !selectedCoupleId}>
               {isLoading ? <Loader2 className="size-4 animate-spin" /> : "Affecter"}
             </Button>
           </DialogFooter>
