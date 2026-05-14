@@ -30,14 +30,13 @@ export const authApi = baseApi.injectEndpoints({
     logout: build.mutation<void, void>({
       query: () => ({ url: "auth/logout", method: "POST" }),
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
-        // Clear auth immediately (optimistic) — don't wait for server response.
+        // Clear auth immediately (optimistic). The authCacheResetMiddleware in
+        // store/index.ts will also reset the RTK Query cache when this fires.
         dispatch(clearAuth());
         try {
           await queryFulfilled;
         } catch {
-          // Session is already cleared locally; ignore backend errors.
-        } finally {
-          dispatch(baseApi.util.resetApiState());
+          // Ignored — session and cache are already cleared locally.
         }
       },
     }),

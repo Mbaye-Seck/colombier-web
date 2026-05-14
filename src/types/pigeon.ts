@@ -7,7 +7,7 @@ export interface Pigeon {
   sexe: PigeonSexe;
   race: string | null;
   couleur: string | null;
-  photo: string | null;
+  photo_url: string | null;
   date_naissance: string | null;
   statut: PigeonStatut;
   user_id: number;

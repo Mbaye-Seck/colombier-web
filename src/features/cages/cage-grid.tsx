@@ -311,13 +311,17 @@ function CageDetailsPanel({ cage, onClose }: { cage: CageView | null; onClose: (
                   <div key={o.ring} className="flex gap-3 p-3 rounded-xl border bg-background">
                     <div
                       className={cn(
-                        "size-12 rounded-lg grid place-items-center shrink-0",
+                        "size-12 rounded-lg grid place-items-center shrink-0 overflow-hidden",
                         o.sex === "M"
                           ? "bg-blue-500/10 text-blue-600"
                           : "bg-pink-500/10 text-pink-600",
                       )}
                     >
-                      <Bird className="size-6" />
+                      {o.photoUrl ? (
+                        <img src={o.photoUrl} alt={o.ring} className="size-12 object-cover" />
+                      ) : (
+                        <Bird className="size-6" />
+                      )}
                     </div>
                     <div className="min-w-0 text-sm">
                       <div

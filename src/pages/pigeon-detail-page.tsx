@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ArrowLeft, Bird, Pencil, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Bird, Pencil, Trash2, Loader2, ImagePlus, X } from "lucide-react";
 import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Badge, Card, Button } from "@/components/domain";
 import { LoadingSpinner, ErrorAlert } from "@/components/ui/query-states";
@@ -46,6 +46,27 @@ function applyApiErrors<T extends FieldValues>(
   return true;
 }
 
+type Payload = {
+  code_bague: string;
+  sexe: "male" | "femelle";
+  race: string | null;
+  couleur: string | null;
+  date_naissance: string | null;
+};
+
+// Builds a FormData for photo upload (PATCH spoofed as POST for PHP file support).
+function toFormData(payload: Payload, photoFile: File): FormData {
+  const fd = new FormData();
+  fd.append("_method", "PATCH");
+  fd.append("code_bague", payload.code_bague);
+  fd.append("sexe", payload.sexe);
+  if (payload.race != null) fd.append("race", payload.race);
+  if (payload.couleur != null) fd.append("couleur", payload.couleur);
+  if (payload.date_naissance != null) fd.append("date_naissance", payload.date_naissance);
+  fd.append("photo", photoFile);
+  return fd;
+}
+
 export function PigeonDetailPage({ ring }: { ring: string }) {
   const navigate = useNavigate();
   const pigeonId = Number(ring);
@@ -59,6 +80,30 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // ── Photo state ──────────────────────────────────────────────────────────────
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(file);
+    setPhotoPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  function clearPhoto() {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+  }
+
+  function closeEditDialog() {
+    setEditOpen(false);
+    form.reset();
+    clearPhoto();
+  }
+
+  // ── Form ─────────────────────────────────────────────────────────────────────
   const form = useForm<PigeonFormValues>({
     resolver: zodResolver(pigeonFormSchema),
   });
@@ -78,17 +123,18 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
 
   const onSubmit = form.handleSubmit(async (values) => {
     if (!pigeon) return;
-    const payload = {
+    const payload: Payload = {
       code_bague: values.code_bague.trim(),
       sexe: values.sexe,
       race: values.race?.trim() || null,
       couleur: values.couleur?.trim() || null,
       date_naissance: values.date_naissance || null,
     };
+    const data = photoFile ? toFormData(payload, photoFile) : payload;
     try {
-      const updated = await updatePigeon({ id: pigeon.id, data: payload }).unwrap();
+      const updated = await updatePigeon({ id: pigeon.id, data }).unwrap();
       toast.success(`Pigeon ${updated.code_bague} mis à jour.`);
-      setEditOpen(false);
+      closeEditDialog();
     } catch (err) {
       if (!applyApiErrors(err, form.setError)) {
         form.setError("root", { message: "Une erreur est survenue. Réessayez." });
@@ -145,13 +191,7 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
       {!isLoading && !isError && pigeon && (
         <>
           {/* ── Edit dialog ── */}
-          <Dialog
-            open={editOpen}
-            onOpenChange={(open) => {
-              setEditOpen(open);
-              if (!open) form.reset();
-            }}
-          >
+          <Dialog open={editOpen} onOpenChange={(open) => { if (!open) closeEditDialog(); }}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Modifier le pigeon</DialogTitle>
@@ -202,12 +242,64 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
                   error={form.formState.errors.date_naissance?.message}
                   {...form.register("date_naissance")}
                 />
+
+                {/* ── Photo input ── */}
+                <div>
+                  <label className="text-sm font-medium">Photo (optionnel)</label>
+                  {photoPreview || pigeon.photo_url ? (
+                    <div className="mt-1.5 flex items-center gap-3">
+                      <div className="relative w-fit">
+                        <img
+                          src={photoPreview ?? pigeon.photo_url ?? ""}
+                          alt="Photo actuelle"
+                          className="size-20 rounded-lg object-cover border"
+                        />
+                        {photoPreview && (
+                          <button
+                            type="button"
+                            onClick={clearPhoto}
+                            className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-white grid place-items-center"
+                            aria-label="Annuler le changement"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                      <label
+                        htmlFor="detail-photo"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                      >
+                        <ImagePlus className="size-3.5" />
+                        {photoPreview ? "Choisir une autre…" : "Remplacer…"}
+                        <input
+                          id="detail-photo"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          onChange={handlePhotoChange}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="detail-photo"
+                      className="mt-1.5 flex items-center gap-2 h-9 px-3 rounded-lg border border-dashed text-sm text-muted-foreground cursor-pointer hover:bg-muted/40 transition-colors"
+                    >
+                      <ImagePlus className="size-4" />
+                      Choisir une image…
+                      <input
+                        id="detail-photo"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="sr-only"
+                        onChange={handlePhotoChange}
+                      />
+                    </label>
+                  )}
+                </div>
+
                 <DialogFooter className="gap-2 sm:gap-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEditOpen(false)}
-                  >
+                  <Button type="button" variant="outline" onClick={closeEditDialog}>
                     Annuler
                   </Button>
                   <Button type="submit" disabled={form.formState.isSubmitting}>
@@ -317,11 +409,30 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
                 )}
               </dl>
             </Card>
-            <Card className="flex flex-col items-center justify-center min-h-50 text-muted-foreground">
-              <Bird className="size-12 opacity-30 mb-2" />
-              <p className="text-sm text-center">
-                Historique et documents disponibles prochainement.
-              </p>
+
+            {/* ── Photo card ── */}
+            <Card className="flex flex-col items-center justify-center min-h-50">
+              {pigeon.photo_url ? (
+                <img
+                  src={pigeon.photo_url}
+                  alt={pigeon.code_bague}
+                  className="max-h-52 rounded-lg object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center text-muted-foreground">
+                  <Bird className="size-12 opacity-30 mb-2" strokeWidth={1.5} />
+                  <p className="text-sm text-center">
+                    Pas de photo.{" "}
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setEditOpen(true)}
+                    >
+                      Ajouter via Modifier.
+                    </button>
+                  </p>
+                </div>
+              )}
             </Card>
           </div>
         </>

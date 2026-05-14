@@ -49,6 +49,7 @@ export type CageOccupant = {
   ring: string;
   race: string;
   age: string;
+  photoUrl?: string;
 };
 
 export type CageHistoryItem = { date: string; label: string };

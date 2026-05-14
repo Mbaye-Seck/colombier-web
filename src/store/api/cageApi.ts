@@ -23,6 +23,7 @@ function pigeonToOccupant(pigeon: Pigeon): CageOccupant {
     ring: pigeon.code_bague,
     race: pigeon.race ?? "—",
     age: "—",
+    photoUrl: pigeon.photo_url ?? undefined,
   };
 }
 

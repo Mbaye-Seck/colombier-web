@@ -72,7 +72,7 @@ export const pigeonApi = baseApi.injectEndpoints({
       providesTags: (_, __, id) => [{ type: "Pigeon", id }],
     }),
 
-    createPigeon: build.mutation<Pigeon, PigeonCreateValues>({
+    createPigeon: build.mutation<Pigeon, FormData | PigeonCreateValues>({
       query: (body) => ({
         url: "pigeons",
         method: "POST",
@@ -82,10 +82,11 @@ export const pigeonApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "Pigeon", id: "LIST" }],
     }),
 
-    updatePigeon: build.mutation<Pigeon, { id: number; data: PigeonUpdateValues }>({
+    updatePigeon: build.mutation<Pigeon, { id: number; data: FormData | PigeonUpdateValues }>({
       query: ({ id, data }) => ({
         url: `pigeons/${id}`,
-        method: "PATCH",
+        // Use POST + _method=PATCH for FormData (PHP ignores files on PATCH/PUT)
+        method: data instanceof FormData ? "POST" : "PATCH",
         body: data,
       }),
       transformResponse: (response: SinglePigeon) => response.data,
