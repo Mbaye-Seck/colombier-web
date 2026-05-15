@@ -1,15 +1,15 @@
-/**
- * Couche auth côté client — simule un token JWT en localStorage.
- * À remplacer par un vrai appel Laravel Sanctum / Passport.
- */
-
 const AUTH_KEY = "colombier_auth";
 
 export type AuthUser = {
-  id: string;
-  name: string;
+  id: number;
+  nom: string;
+  prenom: string;
+  nom_complet: string;
   email: string;
   role: "admin" | "eleveur";
+  photo_profil: string | null;
+  langue: string;
+  timezone: string;
 };
 
 export type AuthSession = {
@@ -37,20 +37,4 @@ export function clearSession(): void {
 
 export function isAuthenticated(): boolean {
   return getSession() !== null;
-}
-
-/** Simule une connexion — à remplacer par POST /api/auth/login */
-export async function loginMock(email: string, _password: string): Promise<AuthSession> {
-  await new Promise((r) => setTimeout(r, 600)); // latence réseau simulée
-  const session: AuthSession = {
-    token: "mock-jwt-token-" + Math.random().toString(36).slice(2),
-    user: {
-      id: "1",
-      name: "Jean Dupont",
-      email,
-      role: "eleveur",
-    },
-  };
-  saveSession(session);
-  return session;
 }

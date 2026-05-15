@@ -1,7 +1,3 @@
-/**
- * Champ de formulaire générique — label + input/select + message d'erreur.
- * Conçu pour être utilisé avec react-hook-form.
- */
 import type { InputHTMLAttributes, SelectHTMLAttributes } from "react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";

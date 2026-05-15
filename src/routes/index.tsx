@@ -6,7 +6,7 @@ export const Route = createFileRoute("/")({
   beforeLoad: requireAuth,
   head: () => ({
     meta: [
-      { title: "Dashboard — Colombier" },
+      { title: "Tableau de bord — Colombier" },
       { name: "description", content: "Tableau de bord de gestion d'élevage de pigeons." },
     ],
   }),

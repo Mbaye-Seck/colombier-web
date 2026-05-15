@@ -7,12 +7,14 @@ import { loginSchema, type LoginFormValues } from "@/lib/schemas/auth";
 import { useLoginMutation } from "@/store/api/authApi";
 import { useAppDispatch } from "@/store";
 import { setSession } from "@/store/slices/authSlice";
-import { Bird, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Route as LoginRoute } from "@/routes/login";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { redirect: redirectTo } = LoginRoute.useSearch();
   const [login, { isLoading }] = useLoginMutation();
 
   const form = useForm<LoginFormValues>({
@@ -21,18 +23,37 @@ export function LoginPage() {
   });
 
   const onSubmit = form.handleSubmit(async (data) => {
-    const result = await login(data);
-    if ("error" in result) {
-      form.setError("root", {
-        message:
-          typeof result.error === "string" ? result.error : "Email ou mot de passe incorrect.",
-      });
-      return;
+    try {
+      const session = await login(data).unwrap();
+
+      if (session.user.role === "admin") {
+        form.setError("root", {
+          message:
+            "Accès réservé aux éleveurs. Les administrateurs doivent utiliser le panneau d'administration.",
+        });
+        return;
+      }
+
+      dispatch(setSession(session));
+      router.invalidate();
+      toast.success(`Bienvenue, ${session.user.nom_complet} !`);
+      void navigate({ to: redirectTo ?? "/" });
+    } catch (err) {
+      const status =
+        err && typeof err === "object" && "status" in err
+          ? (err as { status: number | string }).status
+          : null;
+
+      if (status === 429) {
+        form.setError("root", { message: "Trop de tentatives. Réessayez dans quelques minutes." });
+      } else if (status === "FETCH_ERROR") {
+        form.setError("root", {
+          message: "Impossible de joindre le serveur. Vérifiez votre connexion.",
+        });
+      } else {
+        form.setError("root", { message: "Email ou mot de passe incorrect." });
+      }
     }
-    dispatch(setSession(result.data));
-    router.invalidate();
-    toast.success(`Bienvenue, ${result.data.user.name} !`);
-    void navigate({ to: "/" });
   });
 
   return (
@@ -40,9 +61,11 @@ export function LoginPage() {
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2.5 mb-10">
-            <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center">
-              <Bird className="size-5" />
-            </div>
+            <img
+              src="/branding/colombier.png"
+              alt="Colombier"
+              className="size-10 object-contain shrink-0"
+            />
             <div>
               <div className="font-semibold tracking-tight">Colombier</div>
               <div className="text-xs text-muted-foreground">Gestion d'élevage</div>

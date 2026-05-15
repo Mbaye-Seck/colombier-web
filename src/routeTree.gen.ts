@@ -20,6 +20,11 @@ import { Route as ExitsRouteImport } from './routes/exits'
 import { Route as CouplesRouteImport } from './routes/couples'
 import { Route as CagesRouteImport } from './routes/cages'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReproductionsIndexRouteImport } from './routes/reproductions.index'
+import { Route as PigeonsIndexRouteImport } from './routes/pigeons.index'
+import { Route as ExitsIndexRouteImport } from './routes/exits.index'
+import { Route as CouplesIndexRouteImport } from './routes/couples.index'
+import { Route as CagesIndexRouteImport } from './routes/cages.index'
 import { Route as ReproductionsIdRouteImport } from './routes/reproductions.$id'
 import { Route as PigeonsRingRouteImport } from './routes/pigeons.$ring'
 import { Route as ExitsIdRouteImport } from './routes/exits.$id'
@@ -81,6 +86,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReproductionsIndexRoute = ReproductionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ReproductionsRoute,
+} as any)
+const PigeonsIndexRoute = PigeonsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PigeonsRoute,
+} as any)
+const ExitsIndexRoute = ExitsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ExitsRoute,
+} as any)
+const CouplesIndexRoute = CouplesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CouplesRoute,
+} as any)
+const CagesIndexRoute = CagesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CagesRoute,
+} as any)
 const ReproductionsIdRoute = ReproductionsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -124,24 +154,29 @@ export interface FileRoutesByFullPath {
   '/exits/$id': typeof ExitsIdRoute
   '/pigeons/$ring': typeof PigeonsRingRoute
   '/reproductions/$id': typeof ReproductionsIdRoute
+  '/cages/': typeof CagesIndexRoute
+  '/couples/': typeof CouplesIndexRoute
+  '/exits/': typeof ExitsIndexRoute
+  '/pigeons/': typeof PigeonsIndexRoute
+  '/reproductions/': typeof ReproductionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/cages': typeof CagesRouteWithChildren
-  '/couples': typeof CouplesRouteWithChildren
-  '/exits': typeof ExitsRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/parametres': typeof ParametresRoute
-  '/pigeons': typeof PigeonsRouteWithChildren
   '/profil': typeof ProfilRoute
-  '/reproductions': typeof ReproductionsRouteWithChildren
   '/cages/$code': typeof CagesCodeRoute
   '/couples/$id': typeof CouplesIdRoute
   '/exits/$id': typeof ExitsIdRoute
   '/pigeons/$ring': typeof PigeonsRingRoute
   '/reproductions/$id': typeof ReproductionsIdRoute
+  '/cages': typeof CagesIndexRoute
+  '/couples': typeof CouplesIndexRoute
+  '/exits': typeof ExitsIndexRoute
+  '/pigeons': typeof PigeonsIndexRoute
+  '/reproductions': typeof ReproductionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +196,11 @@ export interface FileRoutesById {
   '/exits/$id': typeof ExitsIdRoute
   '/pigeons/$ring': typeof PigeonsRingRoute
   '/reproductions/$id': typeof ReproductionsIdRoute
+  '/cages/': typeof CagesIndexRoute
+  '/couples/': typeof CouplesIndexRoute
+  '/exits/': typeof ExitsIndexRoute
+  '/pigeons/': typeof PigeonsIndexRoute
+  '/reproductions/': typeof ReproductionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,24 +221,29 @@ export interface FileRouteTypes {
     | '/exits/$id'
     | '/pigeons/$ring'
     | '/reproductions/$id'
+    | '/cages/'
+    | '/couples/'
+    | '/exits/'
+    | '/pigeons/'
+    | '/reproductions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/cages'
-    | '/couples'
-    | '/exits'
     | '/forgot-password'
     | '/login'
     | '/notifications'
     | '/parametres'
-    | '/pigeons'
     | '/profil'
-    | '/reproductions'
     | '/cages/$code'
     | '/couples/$id'
     | '/exits/$id'
     | '/pigeons/$ring'
     | '/reproductions/$id'
+    | '/cages'
+    | '/couples'
+    | '/exits'
+    | '/pigeons'
+    | '/reproductions'
   id:
     | '__root__'
     | '/'
@@ -217,6 +262,11 @@ export interface FileRouteTypes {
     | '/exits/$id'
     | '/pigeons/$ring'
     | '/reproductions/$id'
+    | '/cages/'
+    | '/couples/'
+    | '/exits/'
+    | '/pigeons/'
+    | '/reproductions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -312,6 +362,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reproductions/': {
+      id: '/reproductions/'
+      path: '/'
+      fullPath: '/reproductions/'
+      preLoaderRoute: typeof ReproductionsIndexRouteImport
+      parentRoute: typeof ReproductionsRoute
+    }
+    '/pigeons/': {
+      id: '/pigeons/'
+      path: '/'
+      fullPath: '/pigeons/'
+      preLoaderRoute: typeof PigeonsIndexRouteImport
+      parentRoute: typeof PigeonsRoute
+    }
+    '/exits/': {
+      id: '/exits/'
+      path: '/'
+      fullPath: '/exits/'
+      preLoaderRoute: typeof ExitsIndexRouteImport
+      parentRoute: typeof ExitsRoute
+    }
+    '/couples/': {
+      id: '/couples/'
+      path: '/'
+      fullPath: '/couples/'
+      preLoaderRoute: typeof CouplesIndexRouteImport
+      parentRoute: typeof CouplesRoute
+    }
+    '/cages/': {
+      id: '/cages/'
+      path: '/'
+      fullPath: '/cages/'
+      preLoaderRoute: typeof CagesIndexRouteImport
+      parentRoute: typeof CagesRoute
+    }
     '/reproductions/$id': {
       id: '/reproductions/$id'
       path: '/$id'
@@ -352,20 +437,24 @@ declare module '@tanstack/react-router' {
 
 interface CagesRouteChildren {
   CagesCodeRoute: typeof CagesCodeRoute
+  CagesIndexRoute: typeof CagesIndexRoute
 }
 
 const CagesRouteChildren: CagesRouteChildren = {
   CagesCodeRoute: CagesCodeRoute,
+  CagesIndexRoute: CagesIndexRoute,
 }
 
 const CagesRouteWithChildren = CagesRoute._addFileChildren(CagesRouteChildren)
 
 interface CouplesRouteChildren {
   CouplesIdRoute: typeof CouplesIdRoute
+  CouplesIndexRoute: typeof CouplesIndexRoute
 }
 
 const CouplesRouteChildren: CouplesRouteChildren = {
   CouplesIdRoute: CouplesIdRoute,
+  CouplesIndexRoute: CouplesIndexRoute,
 }
 
 const CouplesRouteWithChildren =
@@ -373,20 +462,24 @@ const CouplesRouteWithChildren =
 
 interface ExitsRouteChildren {
   ExitsIdRoute: typeof ExitsIdRoute
+  ExitsIndexRoute: typeof ExitsIndexRoute
 }
 
 const ExitsRouteChildren: ExitsRouteChildren = {
   ExitsIdRoute: ExitsIdRoute,
+  ExitsIndexRoute: ExitsIndexRoute,
 }
 
 const ExitsRouteWithChildren = ExitsRoute._addFileChildren(ExitsRouteChildren)
 
 interface PigeonsRouteChildren {
   PigeonsRingRoute: typeof PigeonsRingRoute
+  PigeonsIndexRoute: typeof PigeonsIndexRoute
 }
 
 const PigeonsRouteChildren: PigeonsRouteChildren = {
   PigeonsRingRoute: PigeonsRingRoute,
+  PigeonsIndexRoute: PigeonsIndexRoute,
 }
 
 const PigeonsRouteWithChildren =
@@ -394,10 +487,12 @@ const PigeonsRouteWithChildren =
 
 interface ReproductionsRouteChildren {
   ReproductionsIdRoute: typeof ReproductionsIdRoute
+  ReproductionsIndexRoute: typeof ReproductionsIndexRoute
 }
 
 const ReproductionsRouteChildren: ReproductionsRouteChildren = {
   ReproductionsIdRoute: ReproductionsIdRoute,
+  ReproductionsIndexRoute: ReproductionsIndexRoute,
 }
 
 const ReproductionsRouteWithChildren = ReproductionsRoute._addFileChildren(

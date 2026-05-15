@@ -1,18 +1,22 @@
 import { z } from "zod";
 
+export const SORTIE_TYPE = ["vente", "deces", "perte"] as const;
+
 export const exitCreateSchema = z
   .object({
-    ring: z.string().min(1, "Matricule requis").max(32),
-    type: z.enum(["Vente", "Décès", "Perte"], { required_error: "Type requis" }),
-    date: z.string().min(1, "Date requise"),
-    // Vente
-    prix: z.string().optional(),
-    acheteur: z.string().max(100).optional(),
-    // Décès / Perte
-    cause: z.string().max(200).optional(),
+    pigeon_id: z
+      .number({ required_error: "Pigeon requis", invalid_type_error: "ID invalide" })
+      .int()
+      .positive("ID invalide"),
+    type_sortie: z.enum(SORTIE_TYPE, { required_error: "Type de sortie requis" }),
+    date_sortie: z.string().min(1, "Date requise"),
+    prix: z.number().min(0).max(9_999_999.99).nullable().optional(),
+    acheteur: z.string().max(255).nullable().optional(),
+    cause: z.string().max(255).nullable().optional(),
+    circonstance: z.string().max(2000).nullable().optional(),
   })
   .superRefine((val, ctx) => {
-    if (val.type === "Vente" && !val.acheteur) {
+    if (val.type_sortie === "vente" && !val.acheteur) {
       ctx.addIssue({
         code: "custom",
         path: ["acheteur"],

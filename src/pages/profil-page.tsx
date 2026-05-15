@@ -6,10 +6,16 @@ import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Card, Button } from "@/components/domain";
 import { InputField } from "@/components/ui/form-field";
 import { useAuth } from "@/providers/auth-provider";
+import { useGetPigeonPageQuery } from "@/store/api/pigeonApi";
+import { useGetCouplesPageQuery } from "@/store/api/coupleApi";
+import { useGetReproductionsPageQuery } from "@/store/api/reproductionApi";
 import { profilSchema, type ProfilValues } from "@/lib/schemas/profil";
-import { Bird, Mail, MapPin, Calendar, ShieldCheck, Loader2 } from "lucide-react";
+import { Mail, MapPin, ShieldCheck, Loader2 } from "lucide-react";
 
-const MOCK_STATS = { pigeons: 142, couples: 24, reproductions: 87, since: "Janvier 2021" };
+const ROLE_LABELS: Record<string, string> = {
+  eleveur: "Éleveur",
+  admin: "Administrateur",
+};
 
 function FieldRow({ label, value }: { label: string; value: string }) {
   return (
@@ -23,16 +29,24 @@ function FieldRow({ label, value }: { label: string; value: string }) {
 export function ProfilPage() {
   const { user } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [location, setLocation] = useState("Lyon, France");
+  const [location, setLocation] = useState("");
 
-  const initials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+  const { data: pigeonPage } = useGetPigeonPageQuery({ per_page: 1, "filter[statut]": "actif" });
+  const { data: couplePage } = useGetCouplesPageQuery({ per_page: 1, "filter[statut]": "actif" });
+  const { data: reproPage } = useGetReproductionsPageQuery({ per_page: 1 });
+
+  const statPigeons = pigeonPage?.meta.total ?? "—";
+  const statCouples = couplePage?.meta.total ?? "—";
+  const statRepros = reproPage?.meta.total ?? "—";
+
+  const initials = user?.nom_complet
+    ? user.nom_complet.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
   const form = useForm<ProfilValues>({
     resolver: zodResolver(profilSchema),
     defaultValues: {
-      name: user?.name ?? "",
+      name: user?.nom_complet ?? "",
       email: user?.email ?? "",
       location,
     },
@@ -41,7 +55,7 @@ export function ProfilPage() {
   function onSubmit(values: ProfilValues) {
     setLocation(values.location ?? location);
     setEditing(false);
-    toast.success("Profil mis à jour (démonstration).");
+    toast.success("Localisation mise à jour.");
   }
 
   return (
@@ -66,27 +80,26 @@ export function ProfilPage() {
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold">{user?.name ?? "—"}</h2>
-              <p className="text-sm text-muted-foreground capitalize">{user?.role ?? ""}</p>
+              <h2 className="text-lg font-semibold">{user?.nom_complet ?? "—"}</h2>
+              <p className="text-sm text-muted-foreground">{ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? ""}</p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Mail className="size-3.5" /> {user?.email ?? "—"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="size-3.5" /> {form.watch("location") || location}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="size-3.5" /> Éleveur depuis {MOCK_STATS.since}
-                </span>
+                {(form.watch("location") || location) && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="size-3.5" /> {form.watch("location") || location}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-3 gap-4 pt-4 border-t">
             {[
-              { label: "Pigeons", value: MOCK_STATS.pigeons },
-              { label: "Couples actifs", value: MOCK_STATS.couples },
-              { label: "Reproductions", value: MOCK_STATS.reproductions },
+              { label: "Pigeons actifs", value: statPigeons },
+              { label: "Couples actifs", value: statCouples },
+              { label: "Reproductions", value: statRepros },
             ].map(({ label, value }) => (
               <div key={label} className="text-center">
                 <div className="text-2xl font-bold tracking-tight">{value}</div>
@@ -143,10 +156,11 @@ export function ProfilPage() {
           <Card>
             <h3 className="text-sm font-semibold mb-4">Informations</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FieldRow label="Nom complet" value={user?.name ?? "—"} />
+              <FieldRow label="Nom complet" value={user?.nom_complet ?? "—"} />
               <FieldRow label="Email" value={user?.email ?? "—"} />
-              <FieldRow label="Localisation" value={form.watch("location") || location} />
-              <FieldRow label="Membre depuis" value={MOCK_STATS.since} />
+              {(form.watch("location") || location) && (
+                <FieldRow label="Localisation" value={form.watch("location") || location} />
+              )}
             </div>
           </Card>
         )}
@@ -158,16 +172,8 @@ export function ProfilPage() {
             <h3 className="text-sm font-semibold">Sécurité</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            La gestion du mot de passe et l'authentification à deux facteurs seront disponibles
-            après connexion au backend Laravel.
+            La gestion du mot de passe est disponible depuis le panneau d'administration.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => toast.message("Changement de mot de passe — à connecter au backend.")}
-          >
-            Changer le mot de passe
-          </Button>
         </Card>
       </div>
     </AppShell>
