@@ -7,7 +7,7 @@ import { loginSchema, type LoginFormValues } from "@/lib/schemas/auth";
 import { useLoginMutation } from "@/store/api/authApi";
 import { useAppDispatch } from "@/store";
 import { setSession } from "@/store/slices/authSlice";
-import { Bird, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { Route as LoginRoute } from "@/routes/login";
 
 export function LoginPage() {
@@ -61,9 +61,11 @@ export function LoginPage() {
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2.5 mb-10">
-            <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center">
-              <Bird className="size-5" />
-            </div>
+            <img
+              src="/branding/colombier.png"
+              alt="Colombier"
+              className="size-10 object-contain shrink-0"
+            />
             <div>
               <div className="font-semibold tracking-tight">Colombier</div>
               <div className="text-xs text-muted-foreground">Gestion d'élevage</div>

@@ -93,7 +93,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/png", href: "/branding/colombier.png" },
+      { rel: "apple-touch-icon", href: "/branding/colombier.png" },
     ],
   }),
   shellComponent: RootShell,

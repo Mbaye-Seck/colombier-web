@@ -118,9 +118,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="hidden lg:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar h-screen sticky top-0"
         >
           <div className="px-5 py-5 flex items-center gap-2.5 border-b border-sidebar-border">
-            <div className="size-9 rounded-xl bg-primary text-primary-foreground grid place-items-center font-bold shadow-sm">
-              <Bird className="size-5" />
-            </div>
+            <img
+              src="/branding/colombier.png"
+              alt="Colombier"
+              className="size-9 object-contain shrink-0"
+            />
             <div>
               <div className="text-sm font-semibold tracking-tight">Colombier</div>
               <div className="text-[11px] text-muted-foreground">Gestion d'élevage</div>
@@ -176,7 +178,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <SheetContent side="left" className="w-72 p-0 flex flex-col">
                 <SheetHeader className="p-5 border-b text-left">
                   <SheetTitle className="flex items-center gap-2">
-                    <Bird className="size-5 text-primary" /> Colombier
+                    <img src="/branding/colombier.png" alt="" className="size-5 object-contain" aria-hidden="true" />
+                    Colombier
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
@@ -210,7 +213,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Sheet>
 
             <div className="lg:hidden font-semibold flex items-center gap-2">
-              <Bird className="size-5 text-primary" /> Colombier
+              <img src="/branding/colombier.png" alt="" className="size-5 object-contain" aria-hidden="true" />
+              Colombier
             </div>
             <button
               type="button"
