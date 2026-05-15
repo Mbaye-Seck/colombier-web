@@ -43,7 +43,7 @@ export function CageGrid() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [selected, setSelected] = useState<CageView | null>(null);
 
-  const { data: allCages = [], isLoading } = useGetCagesByAviaryQuery(aviary);
+  const { data: allCages = [], isLoading, isError } = useGetCagesByAviaryQuery(aviary);
   // Pre-fetch all cages at mount so the assign dialogs hit the cache immediately
   // (aviary query only covers one volière; dialogs need cross-volière occupancy data)
   useGetCagesQuery();
@@ -140,6 +140,10 @@ export function CageGrid() {
           <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
             <Loader2 className="size-5 animate-spin" />
             <span className="text-sm">Chargement des cages…</span>
+          </div>
+        ) : isError ? (
+          <div className="flex items-center justify-center py-16 text-destructive text-sm">
+            Impossible de charger les cages. Veuillez réessayer.
           </div>
         ) : view === "grid" ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -277,7 +281,7 @@ function CageDetailsPanel({ cage, onClose }: { cage: CageView | null; onClose: (
           <button
             type="button"
             onClick={onClose}
-            className="size-8 grid place-items-center rounded-lg hover:bg-muted"
+            className="size-8 grid place-items-center rounded-lg hover:bg-muted cursor-pointer"
           >
             <X className="size-4" />
           </button>

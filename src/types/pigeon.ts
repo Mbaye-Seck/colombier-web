@@ -19,3 +19,22 @@ export interface Pigeon {
   pere?: Pigeon | null;
   mere?: Pigeon | null;
 }
+
+export interface PigeonStub {
+  id: number;
+  code_bague: string;
+  sexe: PigeonSexe;
+  race: string | null;
+  couleur: string | null;
+  statut: PigeonStatut;
+}
+
+export interface AncestorNode {
+  pigeon: PigeonStub;
+  pere: AncestorNode | null;
+  mere: AncestorNode | null;
+}
+
+export interface ChildPigeon extends PigeonStub {
+  role: "pere" | "mere";
+}

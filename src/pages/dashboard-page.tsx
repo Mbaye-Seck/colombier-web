@@ -165,7 +165,7 @@ export function DashboardPage() {
               Créer couple
             </Link>
             <Link
-              to="/cages"
+              to="/reproductions"
               className="aspect-square rounded-xl border bg-background hover:bg-muted hover:border-primary/30 transition flex flex-col items-center justify-center gap-2 text-xs font-medium text-foreground"
             >
               <Egg className="size-5 text-primary" />

@@ -20,10 +20,14 @@ import {
 } from "@/components/ui/dialog";
 import {
   useGetPigeonQuery,
+  useGetPigeonsQuery,
+  useGetAncestorsQuery,
+  useGetChildrenQuery,
   useUpdatePigeonMutation,
   useDeletePigeonMutation,
 } from "@/store/api/pigeonApi";
 import { pigeonFormSchema, type PigeonFormValues } from "@/lib/schemas/pigeon";
+import { GenealogyTree, ChildrenList } from "@/features/genealogy/genealogy-tree";
 import { cn } from "@/lib/utils";
 import type { PigeonStatut } from "@/types/pigeon";
 
@@ -52,6 +56,8 @@ type Payload = {
   race: string | null;
   couleur: string | null;
   date_naissance: string | null;
+  pere_id: number | null;
+  mere_id: number | null;
 };
 
 // Builds a FormData for photo upload (PATCH spoofed as POST for PHP file support).
@@ -63,6 +69,8 @@ function toFormData(payload: Payload, photoFile: File): FormData {
   if (payload.race != null) fd.append("race", payload.race);
   if (payload.couleur != null) fd.append("couleur", payload.couleur);
   if (payload.date_naissance != null) fd.append("date_naissance", payload.date_naissance);
+  if (payload.pere_id != null) fd.append("pere_id", String(payload.pere_id));
+  if (payload.mere_id != null) fd.append("mere_id", String(payload.mere_id));
   fd.append("photo", photoFile);
   return fd;
 }
@@ -74,8 +82,14 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
   const { data: pigeon, isLoading, isError, refetch } = useGetPigeonQuery(pigeonId, {
     skip: isNaN(pigeonId),
   });
+  const { data: ancestorTree } = useGetAncestorsQuery({ id: pigeonId }, { skip: isNaN(pigeonId) });
+  const { data: children = [] } = useGetChildrenQuery(pigeonId, { skip: isNaN(pigeonId) });
+  const { data: allPigeons = [] } = useGetPigeonsQuery({ per_page: 200, "filter[statut]": "actif" });
   const [updatePigeon] = useUpdatePigeonMutation();
   const [deletePigeon] = useDeletePigeonMutation();
+
+  const maleOptions = allPigeons.filter((p) => p.sexe === "male" && p.id !== pigeonId);
+  const femaleOptions = allPigeons.filter((p) => p.sexe === "femelle" && p.id !== pigeonId);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -117,6 +131,8 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
         race: pigeon.race ?? "",
         couleur: pigeon.couleur ?? "",
         date_naissance: pigeon.date_naissance ?? "",
+        pere_id: pigeon.pere_id ?? null,
+        mere_id: pigeon.mere_id ?? null,
       });
     }
   }, [pigeon, editOpen, form]);
@@ -129,6 +145,8 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
       race: values.race?.trim() || null,
       couleur: values.couleur?.trim() || null,
       date_naissance: values.date_naissance || null,
+      pere_id: values.pere_id ?? null,
+      mere_id: values.mere_id ?? null,
     };
     const data = photoFile ? toFormData(payload, photoFile) : payload;
     try {
@@ -242,6 +260,50 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
                   error={form.formState.errors.date_naissance?.message}
                   {...form.register("date_naissance")}
                 />
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="detail-pere">
+                    Père (optionnel)
+                  </label>
+                  <select
+                    id="detail-pere"
+                    className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
+                    {...form.register("pere_id", {
+                      setValueAs: (v) => (v === "" ? null : Number(v)),
+                    })}
+                  >
+                    <option value="">— Aucun père —</option>
+                    {maleOptions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code_bague}{p.race ? ` — ${p.race}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {form.formState.errors.pere_id && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.pere_id.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="detail-mere">
+                    Mère (optionnel)
+                  </label>
+                  <select
+                    id="detail-mere"
+                    className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
+                    {...form.register("mere_id", {
+                      setValueAs: (v) => (v === "" ? null : Number(v)),
+                    })}
+                  >
+                    <option value="">— Aucune mère —</option>
+                    {femaleOptions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code_bague}{p.race ? ` — ${p.race}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {form.formState.errors.mere_id && (
+                    <p className="text-xs text-destructive mt-1">{form.formState.errors.mere_id.message}</p>
+                  )}
+                </div>
 
                 {/* ── Photo input ── */}
                 <div>
@@ -339,6 +401,7 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
             }
           />
 
+          <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <h3 className="text-sm font-semibold mb-3">Identité</h3>
@@ -434,6 +497,33 @@ export function PigeonDetailPage({ ring }: { ring: string }) {
                 </div>
               )}
             </Card>
+          </div>
+
+          {/* ── Genealogy tree ── */}
+          <Card>
+            <h3 className="text-sm font-semibold mb-4">Arbre généalogique</h3>
+            {ancestorTree ? (
+              <GenealogyTree tree={ancestorTree} />
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">Chargement…</p>
+            )}
+          </Card>
+
+          {/* ── Children / descendants ── */}
+          <Card className="p-0! overflow-hidden">
+            <div className="px-4 py-3 border-b">
+              <h3 className="text-sm font-semibold">
+                Descendants
+                {children.length > 0 && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {children.length} pigeon{children.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </h3>
+            </div>
+            <ChildrenList children={children} />
+          </Card>
+
           </div>
         </>
       )}

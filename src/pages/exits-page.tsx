@@ -248,7 +248,7 @@ export function ExitsPage() {
                 key={f.value}
                 type="button"
                 onClick={() => setFilter(f.value)}
-                className={`h-8 px-3 rounded-lg text-xs font-medium transition ${
+                className={`h-8 px-3 rounded-lg text-xs font-medium transition cursor-pointer ${
                   filter === f.value
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted"

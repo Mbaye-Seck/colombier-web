@@ -31,13 +31,14 @@ export type PigeonUpdateValues = z.infer<typeof pigeonUpdateSchema>;
 
 // Form schema — subset of fields shown in create/edit dialogs.
 // Excludes statut (exit statuses are set via Sorties API, not direct update).
-// Excludes photo, pere_id, mere_id, reproduction_id (require complex selects, future phase).
 export const pigeonFormSchema = z.object({
   code_bague: z.string().min(1, "Matricule requis").max(30, "Max 30 caractères"),
   sexe: z.enum(PIGEON_SEXE, { required_error: "Sexe requis" }),
   race: z.string().max(100, "Max 100 caractères").optional(),
   couleur: z.string().max(100, "Max 100 caractères").optional(),
   date_naissance: z.string().optional(),
+  pere_id: z.number().int().positive().nullable().optional(),
+  mere_id: z.number().int().positive().nullable().optional(),
 });
 
 export type PigeonFormValues = z.infer<typeof pigeonFormSchema>;

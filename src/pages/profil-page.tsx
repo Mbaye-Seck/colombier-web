@@ -12,6 +12,11 @@ import { useGetReproductionsPageQuery } from "@/store/api/reproductionApi";
 import { profilSchema, type ProfilValues } from "@/lib/schemas/profil";
 import { Mail, MapPin, ShieldCheck, Loader2 } from "lucide-react";
 
+const ROLE_LABELS: Record<string, string> = {
+  eleveur: "Éleveur",
+  admin: "Administrateur",
+};
+
 function FieldRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-1">
@@ -76,7 +81,7 @@ export function ProfilPage() {
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-semibold">{user?.nom_complet ?? "—"}</h2>
-              <p className="text-sm text-muted-foreground capitalize">{user?.role ?? ""}</p>
+              <p className="text-sm text-muted-foreground">{ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? ""}</p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Mail className="size-3.5" /> {user?.email ?? "—"}

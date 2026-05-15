@@ -1,5 +1,5 @@
 import { baseApi } from "@/store/baseApi";
-import type { Pigeon } from "@/types/pigeon";
+import type { AncestorNode, ChildPigeon, Pigeon } from "@/types/pigeon";
 import type { PigeonCreateValues, PigeonUpdateValues } from "@/lib/schemas/pigeon";
 
 export type PaginationMeta = {
@@ -103,6 +103,21 @@ export const pigeonApi = baseApi.injectEndpoints({
         { type: "Pigeon", id: "LIST" },
       ],
     }),
+
+    getAncestors: build.query<AncestorNode, { id: number; depth?: number }>({
+      query: ({ id, depth = 3 }) => ({
+        url: `pigeons/${id}/ancestors`,
+        params: { depth },
+      }),
+      transformResponse: (response: { data: AncestorNode }) => response.data,
+      providesTags: (_, __, { id }) => [{ type: "Pigeon", id }],
+    }),
+
+    getChildren: build.query<ChildPigeon[], number>({
+      query: (id) => ({ url: `pigeons/${id}/children` }),
+      transformResponse: (response: { data: ChildPigeon[] }) => response.data,
+      providesTags: (_, __, id) => [{ type: "Pigeon", id }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -114,4 +129,6 @@ export const {
   useCreatePigeonMutation,
   useUpdatePigeonMutation,
   useDeletePigeonMutation,
+  useGetAncestorsQuery,
+  useGetChildrenQuery,
 } = pigeonApi;

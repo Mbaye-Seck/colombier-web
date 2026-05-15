@@ -20,8 +20,6 @@ import {
   Egg,
   Grid3x3,
   LogOut,
-  Bell,
-  Settings,
   User,
   Plus,
 } from "lucide-react";
@@ -32,14 +30,12 @@ interface CommandPaletteProps {
 }
 
 const NAV_COMMANDS = [
-  { label: "Dashboard", icon: LayoutDashboard, to: "/" },
+  { label: "Tableau de bord", icon: LayoutDashboard, to: "/" },
   { label: "Pigeons", icon: Bird, to: "/pigeons" },
   { label: "Couples", icon: Heart, to: "/couples" },
   { label: "Reproductions", icon: Egg, to: "/reproductions" },
   { label: "Volières & Cages", icon: Grid3x3, to: "/cages" },
   { label: "Sorties", icon: LogOut, to: "/exits" },
-  { label: "Notifications", icon: Bell, to: "/notifications" },
-  { label: "Paramètres", icon: Settings, to: "/parametres" },
   { label: "Mon profil", icon: User, to: "/profil" },
 ] as const;
 

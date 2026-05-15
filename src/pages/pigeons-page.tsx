@@ -8,6 +8,7 @@ import { AppShell } from "@/layouts/app-shell";
 import { PageHeader, Badge, Button, Card } from "@/components/domain";
 import {
   useGetPigeonPageQuery,
+  useGetPigeonsQuery,
   useCreatePigeonMutation,
   useUpdatePigeonMutation,
   useDeletePigeonMutation,
@@ -43,6 +44,8 @@ function toPayload(v: PigeonFormValues) {
     race: v.race?.trim() || null,
     couleur: v.couleur?.trim() || null,
     date_naissance: v.date_naissance || null,
+    pere_id: v.pere_id ?? null,
+    mere_id: v.mere_id ?? null,
   };
 }
 
@@ -58,6 +61,8 @@ function toFormData(payload: Payload, photoFile: File, method?: "PATCH"): FormDa
   if (payload.race != null) fd.append("race", payload.race);
   if (payload.couleur != null) fd.append("couleur", payload.couleur);
   if (payload.date_naissance != null) fd.append("date_naissance", payload.date_naissance);
+  if (payload.pere_id != null) fd.append("pere_id", String(payload.pere_id));
+  if (payload.mere_id != null) fd.append("mere_id", String(payload.mere_id));
   fd.append("photo", photoFile);
   return fd;
 }
@@ -89,6 +94,8 @@ const FORM_DEFAULTS: PigeonFormValues = {
   race: "",
   couleur: "",
   date_naissance: "",
+  pere_id: null,
+  mere_id: null,
 };
 
 type SexFilter = "all" | PigeonSexe;
@@ -170,9 +177,13 @@ export function PigeonsPage() {
 
   // ── RTK Query ───────────────────────────────────────────────────────────────
   const { data, isLoading, isError, refetch } = useGetPigeonPageQuery(queryParams);
+  const { data: allPigeons = [] } = useGetPigeonsQuery({ per_page: 200, "filter[statut]": "actif" });
   const [createPigeon] = useCreatePigeonMutation();
   const [updatePigeon] = useUpdatePigeonMutation();
   const [deletePigeon] = useDeletePigeonMutation();
+
+  const maleOptions = useMemo(() => allPigeons.filter((p) => p.sexe === "male"), [allPigeons]);
+  const femaleOptions = useMemo(() => allPigeons.filter((p) => p.sexe === "femelle"), [allPigeons]);
 
   const pigeons = data?.data ?? [];
   const meta = data?.meta;
@@ -199,6 +210,8 @@ export function PigeonsPage() {
         race: editingPigeon.race ?? "",
         couleur: editingPigeon.couleur ?? "",
         date_naissance: editingPigeon.date_naissance ?? "",
+        pere_id: editingPigeon.pere_id ?? null,
+        mere_id: editingPigeon.mere_id ?? null,
       });
     }
   }, [editingPigeon, editForm]);
@@ -324,6 +337,50 @@ export function PigeonsPage() {
               {...addForm.register("date_naissance")}
             />
             <div>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="add-pere">
+                Père (optionnel)
+              </label>
+              <select
+                id="add-pere"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
+                {...addForm.register("pere_id", {
+                  setValueAs: (v) => (v === "" ? null : Number(v)),
+                })}
+              >
+                <option value="">— Aucun père —</option>
+                {maleOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code_bague}{p.race ? ` — ${p.race}` : ""}
+                  </option>
+                ))}
+              </select>
+              {addForm.formState.errors.pere_id && (
+                <p className="text-xs text-destructive mt-1">{addForm.formState.errors.pere_id.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="add-mere">
+                Mère (optionnel)
+              </label>
+              <select
+                id="add-mere"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
+                {...addForm.register("mere_id", {
+                  setValueAs: (v) => (v === "" ? null : Number(v)),
+                })}
+              >
+                <option value="">— Aucune mère —</option>
+                {femaleOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code_bague}{p.race ? ` — ${p.race}` : ""}
+                  </option>
+                ))}
+              </select>
+              {addForm.formState.errors.mere_id && (
+                <p className="text-xs text-destructive mt-1">{addForm.formState.errors.mere_id.message}</p>
+              )}
+            </div>
+            <div>
               <label className="text-sm font-medium">Photo (optionnel)</label>
               {addPhotoPreview ? (
                 <div className="mt-1.5 relative w-fit">
@@ -439,6 +496,54 @@ export function PigeonsPage() {
               error={editForm.formState.errors.date_naissance?.message}
               {...editForm.register("date_naissance")}
             />
+            <div>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="edit-pere">
+                Père (optionnel)
+              </label>
+              <select
+                id="edit-pere"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
+                {...editForm.register("pere_id", {
+                  setValueAs: (v) => (v === "" ? null : Number(v)),
+                })}
+              >
+                <option value="">— Aucun père —</option>
+                {maleOptions
+                  .filter((p) => p.id !== editingPigeon?.id)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code_bague}{p.race ? ` — ${p.race}` : ""}
+                    </option>
+                  ))}
+              </select>
+              {editForm.formState.errors.pere_id && (
+                <p className="text-xs text-destructive mt-1">{editForm.formState.errors.pere_id.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="edit-mere">
+                Mère (optionnel)
+              </label>
+              <select
+                id="edit-mere"
+                className="mt-1.5 w-full h-9 rounded-lg border bg-background px-3 text-sm cursor-pointer"
+                {...editForm.register("mere_id", {
+                  setValueAs: (v) => (v === "" ? null : Number(v)),
+                })}
+              >
+                <option value="">— Aucune mère —</option>
+                {femaleOptions
+                  .filter((p) => p.id !== editingPigeon?.id)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code_bague}{p.race ? ` — ${p.race}` : ""}
+                    </option>
+                  ))}
+              </select>
+              {editForm.formState.errors.mere_id && (
+                <p className="text-xs text-destructive mt-1">{editForm.formState.errors.mere_id.message}</p>
+              )}
+            </div>
             <div>
               <label className="text-sm font-medium">Photo (optionnel)</label>
               {editPhotoPreview || editingPigeon?.photo_url ? (
